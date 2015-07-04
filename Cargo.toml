@@ -1,0 +1,21 @@
+[package]
+name = "cache-rs"
+version = "0.1.0"
+authors = ["Georg Brandl <georg@python.org>"]
+
+[dependencies]
+regex = "*"
+log = "*"
+log4rs = "*"
+time = "*"
+docopt = "*"
+docopt_macros = "*"
+ansi_term = "*"
+lazy_static = "*"
+rustc-serialize = "*"
+
+[dependencies.ctrlc]
+git = "https://github.com/birkenfeld/rust-ctrlc"
+
+[dependencies.daemonize]
+git = "https://github.com/birkenfeld/daemonize-rs"
