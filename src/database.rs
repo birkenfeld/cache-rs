@@ -202,7 +202,7 @@ impl DB {
                         continue;
                     }
                     let path = dentry.path();
-                    let catname = path.file_stem().unwrap();
+                    let catname = path.file_name().unwrap();
                     let catname = catname.to_string_lossy().replace("-", "/");
                     match self.load_one_file(catname, dentry.path()) {
                         Ok(n) => {
@@ -276,6 +276,7 @@ impl DB {
 
     /// Roll over all store files after midnight has passed.
     fn rollover(&mut self) -> io::Result<()> {
+        info!("midnight passed, rolling over data files...");
         let thisday = Tm { tm_hour: 0, tm_min: 0, tm_sec: 0, tm_nsec: 0, ..now() };
         self.midnights = (to_timefloat(thisday),
                           to_timefloat(thisday + Duration::days(1)));
@@ -312,7 +313,9 @@ impl DB {
             try!(fp.write(b"# NICOS cache store file v2\n"));
         }
         try!(ensure_dir(linkfile.parent().unwrap()));
-        try!(hard_link(file, linkfile));
+        if !linkfile.is_file() {
+            try!(hard_link(file, linkfile));
+        }
         Ok(fp)
     }
 
