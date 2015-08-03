@@ -458,13 +458,13 @@ impl DB {
                 if fullkey.find(wc).is_some() {
                     res.push(entry.to_msg(fullkey, with_ts).to_string());
                     if res.len() >= 100 {
-                        let _ = send_q.send(res.connect(""));
+                        let _ = send_q.send(res.join(""));
                         res.clear();
                     }
                 }
             }
         }
-        let _ = send_q.send(res.connect(""));
+        let _ = send_q.send(res.join(""));
     }
 
     /// Ask for the history of a single key.
@@ -489,14 +489,14 @@ impl DB {
                         res.push(TellTS { key: key.into(), val: val.into(), time: time,
                                           ttl: 0., no_store: false }.to_string());
                         if res.len() >= 100 {
-                            let _ = send_q.send(res.connect(""));
+                            let _ = send_q.send(res.join(""));
                             res.clear();
                         }
                     }
                 }}
             }
         }
-        let _ = send_q.send(res.connect(""));
+        let _ = send_q.send(res.join(""));
     }
 
     /// Lock or unlock a key for multi-process synchronization.

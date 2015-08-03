@@ -29,7 +29,7 @@ use std::net::{ SocketAddr, TcpStream, TcpListener, UdpSocket, Shutdown };
 use std::sync::mpsc;
 use std::thread;
 
-use ctrlc::{ SigHandler, SIGINT, SIGTERM };
+use ctrlc::CtrlC;
 
 use handler::{ Updater, Handler, UpdaterMsg };
 use database::DB;
@@ -240,7 +240,7 @@ impl Server {
     /// handlers to handle them.
     pub fn run(self, addr: &str) -> io::Result<()> {
         // handle SIGINT and SIGTERM
-        let wait_for_quit = SigHandler::get_waiter(vec![SIGINT, SIGTERM]);
+        let wait_for_quit = CtrlC::get_waiter(vec![2, 15]);
 
         // create the UDP socket and start its handler thread
         let udp_sock = try!(UdpSocket::bind(addr));

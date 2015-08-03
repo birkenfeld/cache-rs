@@ -91,7 +91,7 @@ impl<'a> CacheMsg<'a> {
     /// This matches a regular expression, and then creates a CacheMsg if successful.
     pub fn parse(line: &str) -> Option<CacheMsg> {
         if let Some(captures) = MSG_RE.captures(line) {
-            let mut t1;
+            let t1;
             let mut dt = 0.;
             let has_tsop = captures.name("tsop").is_some();
             if has_tsop {
