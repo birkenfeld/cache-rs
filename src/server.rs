@@ -73,7 +73,9 @@ impl Client for UdpClient {
         let mut n = 0;
         if let Some(v) = self.2.take() {
             n = v.len();
-            buf.move_from(v, 0, n);
+            for (loc, el) in buf.iter_mut().zip(v) {
+                *loc = el;
+            }
         }
         Ok(n)
     }
