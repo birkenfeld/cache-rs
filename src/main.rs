@@ -36,9 +36,11 @@ extern crate docopt;
 extern crate ansi_term;
 #[macro_use]
 extern crate lazy_static;
-extern crate ctrlc;
 extern crate daemonize;
 extern crate rustc_serialize;
+extern crate chan_signal;
+
+use chan_signal::Signal;
 
 mod database;
 mod handler;
@@ -88,10 +90,18 @@ fn main() {
     if let Err(err) = util::write_pidfile(&args.flag_pid) {
         error!("could not write PID file: {}", err);
     }
+
+    // handle SIGINT and SIGTERM
+    let signal_chan = chan_signal::notify(&[Signal::INT, Signal::TERM]);
+
     let server = server::Server::new(&args.flag_store, args.flag_clear);
     info!("starting server on {}...", args.flag_bind);
-    if let Err(err) = server.run(&args.flag_bind) {
+    if let Err(err) = server.start(&args.flag_bind) {
         error!("could not initialize server: {}", err);
     }
+
+    // wait for a signal to finish
+    signal_chan.recv().unwrap();
+    info!("quitting...");
     util::remove_pidfile(&args.flag_pid);
 }

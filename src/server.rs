@@ -29,8 +29,6 @@ use std::net::{ SocketAddr, TcpStream, TcpListener, UdpSocket, Shutdown };
 use std::sync::mpsc;
 use std::thread;
 
-use ctrlc::CtrlC;
-
 use handler::{ Updater, Handler, UpdaterMsg };
 use database::DB;
 use util::{ Threadsafe, threadsafe, lock_mutex };
@@ -236,12 +234,9 @@ impl Server {
         }
     }
 
-    /// Main server function; accepts clients on the listening socket and spawns
-    /// handlers to handle them.
-    pub fn run(self, addr: &str) -> io::Result<()> {
-        // handle SIGINT and SIGTERM
-        let wait_for_quit = CtrlC::get_waiter(vec![2, 15]);
-
+    /// Main server function; start threads to accept clients on the listening
+    /// socket and spawn handlers to handle them.
+    pub fn start(self, addr: &str) -> io::Result<()> {
         // create the UDP socket and start its handler thread
         let udp_sock = try!(UdpSocket::bind(addr));
         let db_clone = self.db.clone();
@@ -250,10 +245,6 @@ impl Server {
         // create the TCP socket and start its handler thread
         let tcp_sock = try!(TcpListener::bind(addr));
         thread::spawn(move || Server::tcp_listener(self, tcp_sock));
-
-        // wait for a signal to finish
-        wait_for_quit();
-        info!("quitting...");
         Ok(())
     }
 }
