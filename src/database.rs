@@ -39,6 +39,9 @@ use message::CacheMsg::{ Tell, TellOld, TellTS, TellOldTS, LockRes };
 use util::{ localtime, ensure_dir, to_timefloat, day_path, all_days, open_file };
 use server::ClientAddr;
 
+/// Number of entries to send back in one batch.
+const BATCHSIZE: usize = 100;
+
 /// Represents an entry (without key) in the database.
 ///
 /// The four pieces of data are:
@@ -451,13 +454,13 @@ impl DB {
 
     /// Ask for many values matching a key wildcard.
     pub fn ask_wc(&self, wc: &str, with_ts: bool, send_q: &mpsc::Sender<String>) {
-        let mut res = vec![];
+        let mut res = Vec::with_capacity(BATCHSIZE);
         for (catname, submap) in &self.entry_cats {
             for (subkey, entry) in submap.iter() {
                 let fullkey = construct_key(catname, subkey);
                 if fullkey.find(wc).is_some() {
                     res.push(entry.to_msg(fullkey, with_ts).to_string());
-                    if res.len() >= 100 {
+                    if res.len() >= BATCHSIZE {
                         let _ = send_q.send(res.join(""));
                         res.clear();
                     }
@@ -479,7 +482,7 @@ impl DB {
         } else {
             all_days(from, to)
         };
-        let mut res = Vec::new();
+        let mut res = Vec::with_capacity(BATCHSIZE);
         for path in paths {
             match self.read_history(&path, catname, subkey) {
                 Err(e)   => warn!("could not read histfile for {}/{}: {}", path, catname, e),
@@ -488,7 +491,7 @@ impl DB {
                     if from <= time && time <= to {
                         res.push(TellTS { key: key.into(), val: val.into(), time: time,
                                           ttl: 0., no_store: false }.to_string());
-                        if res.len() >= 100 {
+                        if res.len() >= BATCHSIZE {
                             let _ = send_q.send(res.join(""));
                             res.clear();
                         }
