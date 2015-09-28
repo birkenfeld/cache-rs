@@ -344,7 +344,7 @@ impl DB {
 
     /// Clean up expired keys.
     pub fn clean(&mut self) {
-        for (catname, submap) in self.entry_cats.iter_mut() {
+        for (catname, submap) in &mut self.entry_cats {
             let now = localtime();
             for (subkey, entry) in submap.iter_mut() {
                 if entry.expired {
@@ -452,7 +452,7 @@ impl DB {
     /// Ask for many values matching a key wildcard.
     pub fn ask_wc(&self, wc: &str, with_ts: bool, send_q: &mpsc::Sender<String>) {
         let mut res = vec![];
-        for (catname, submap) in self.entry_cats.iter() {
+        for (catname, submap) in &self.entry_cats {
             for (subkey, entry) in submap.iter() {
                 let fullkey = construct_key(catname, subkey);
                 if fullkey.find(wc).is_some() {
