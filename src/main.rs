@@ -73,7 +73,8 @@ fn main() {
     let args: Args = Args::docopt().decode().unwrap_or_else(|e| e.exit());
 
     let log_path = std::path::Path::new(&args.flag_log);
-    if let Err(err) = logging::init(&log_path, !args.flag_d) {
+    if let Err(err) = logging::init(&log_path, "cache-rs",
+                                    args.flag_v, !args.flag_d) {
         println!("could not initialize logging: {}", err);
     }
     if args.flag_d {

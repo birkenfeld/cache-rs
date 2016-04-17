@@ -69,14 +69,15 @@ impl Append for ConsoleAppender {
     fn append(&self, record: &LogRecord) -> Result<(), Box<Error>> {
         let mut stdout = self.stdout.lock();
         let time_str = strftime("[%H:%M:%S]", &now()).unwrap();
-        let time = White.paint(time_str);
-        let msg = format!("{}", record.args());
-        try!(match record.level() {
-            LogLevel::Error => write!(stdout, "{} ERROR: {}\n", time, Red.bold().paint(msg)),
-            LogLevel::Warn  => write!(stdout, "{} WARNING: {}\n", time, Purple.bold().paint(msg)),
-            LogLevel::Debug => write!(stdout, "{} {}\n", time, White.paint(msg)),
-            _               => write!(stdout, "{} {}\n", time, msg),
-        });
+        let msg = match record.level() {
+            LogLevel::Error => Red.bold().paint(
+                format!("ERROR: {}", record.args())),
+            LogLevel::Warn  => Purple.paint(
+                format!("WARNING: {}", record.args())),
+            LogLevel::Debug => White.paint(format!("{}", record.args())),
+            _ => From::from(format!("{}", record.args())),
+        };
+        try!(writeln!(stdout, "{} {}", White.paint(time_str), msg));
         try!(stdout.flush());
         Ok(())
     }
@@ -99,9 +100,9 @@ impl RollingFileAppender {
         let roll_at = (thisday + Duration::days(1)).to_timespec();
         let pattern = PatternEncoder::new("{d(%H:%M:%S,%f)} : {l:<5} : {m}{n}");
         let link_fn = dir.join("current");
-        RollingFileAppender { dir: dir.to_path_buf(), prefix: prefix.to_owned(),
-                              link_fn: link_fn, file: Mutex::new((None, roll_at)),
-                              pattern: pattern }
+        let prefix = prefix.replace("/", "-");
+        RollingFileAppender { dir: dir.to_path_buf(), prefix: prefix, link_fn: link_fn,
+                              file: Mutex::new((None, roll_at)), pattern: pattern }
     }
 
     fn rollover(&self, file_opt: &mut Option<Writer>, roll_at: &mut Timespec) -> io::Result<()> {
@@ -132,10 +133,11 @@ impl Append for RollingFileAppender {
 }
 
 
-pub fn init<P: AsRef<Path>>(log_path: P, use_stdout: bool) -> io::Result<()> {
+pub fn init<P: AsRef<Path>>(log_path: P, srvname: &str, debug: bool,
+                            use_stdout: bool) -> io::Result<()> {
     try!(ensure_dir(log_path.as_ref()));
 
-    let file_appender = RollingFileAppender::new(log_path.as_ref(), "cache-rs");
+    let file_appender = RollingFileAppender::new(log_path.as_ref(), srvname);
     let mut root_cfg = Root::builder().appender("file".into());
     if use_stdout {
         root_cfg = root_cfg.appender("con".into());
@@ -146,7 +148,8 @@ pub fn init<P: AsRef<Path>>(log_path: P, use_stdout: bool) -> io::Result<()> {
         let con_appender = ConsoleAppender::new();
         config = config.appender(Appender::builder().build("con".into(), box con_appender));
     }
-    let config = config.build(root_cfg.build(LogLevelFilter::Info))
+    let config = config.build(root_cfg.build(if debug { LogLevelFilter::Debug }
+                                             else { LogLevelFilter::Info }))
                        .expect("error building logging config");
 
     let _ = log4rs::init_config(config);
