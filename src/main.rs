@@ -23,7 +23,7 @@
 //! The main entry point and crate definitions.
 
 // let's use some unstable features :)
-#![feature(box_syntax, dir_builder, path_ext, drain, convert, plugin)]
+#![feature(box_syntax, plugin)]
 #![plugin(docopt_macros)]
 
 #[macro_use]

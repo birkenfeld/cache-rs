@@ -22,10 +22,10 @@
 //
 //! This module contains misc. utilities.
 
-use std::io::{ self, Write };
-use std::fs::{ DirBuilder, OpenOptions, File, PathExt, read_link, remove_file };
+use std::io::{self, Write};
+use std::fs::{DirBuilder, OpenOptions, File, read_link, remove_file};
 use std::path::Path;
-use std::sync::{ Arc, Mutex, MutexGuard };
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use time;
 
@@ -100,7 +100,7 @@ pub fn write_pidfile(pid_path: &str) -> io::Result<()> {
     try!(ensure_dir(pid_path));
     let file = Path::new(pid_path).join("cache-rs.pid");
     let my_pid = try!(read_link("/proc/self"));
-    let my_pid = my_pid.as_os_str().to_bytes().unwrap();
+    let my_pid = my_pid.as_os_str().to_str().unwrap().as_bytes();
     try!(File::create(file)).write(my_pid).map(|_| ())
 }
 

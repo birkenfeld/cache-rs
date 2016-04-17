@@ -46,7 +46,7 @@ lazy_static! {
     "#).unwrap();
 }
 
-type Cstr<'a> = Cow<'a, str>;
+pub type Cstr<'a> = Cow<'a, str>;
 
 /// An algebraic data type that represents any message (line) that can be sent
 /// over the network in the cache protocol.
@@ -147,7 +147,7 @@ impl<'a> CacheMsg<'a> {
                 "~" =>  Some(Rewrite { new_prefix: key.into(), old_prefix: val.into() }),
                 _   =>  None,
             }
-        } else if (line.trim() == "") {
+        } else if line.trim() == "" {
             Some(Quit)
         } else {
             None

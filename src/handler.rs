@@ -22,15 +22,15 @@
 //
 //! This module contains the handler for a single network connection.
 
-use std::io::{ Read, Write };
+use std::io::{Read, Write};
 use std::sync::mpsc;
 use std::thread;
 
-use database::{ DB, Entry };
+use database::{DB, Entry};
 use message::CacheMsg;
 use message::CacheMsg::*;
-use util::{ Threadsafe, localtime, lock_mutex };
-use server::{ ClientAddr, Client, RECVBUF_LEN };
+use util::{Threadsafe, localtime, lock_mutex};
+use server::{ClientAddr, Client, RECVBUF_LEN};
 
 
 /// Provides functionality to send key updates to the the connected client.

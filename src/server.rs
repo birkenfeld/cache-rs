@@ -24,14 +24,15 @@
 
 use std::cmp::min;
 use std::collections::HashMap;
-use std::io::{ self, Read, Write };
-use std::net::{ SocketAddr, TcpStream, TcpListener, UdpSocket, Shutdown };
+use std::io::{self, Read, Write};
+use std::net::{SocketAddr, TcpStream, TcpListener, UdpSocket, Shutdown};
 use std::sync::mpsc;
 use std::thread;
+use std::time::Duration;
 
-use handler::{ Updater, Handler, UpdaterMsg };
+use handler::{Updater, Handler, UpdaterMsg};
 use database::DB;
-use util::{ Threadsafe, threadsafe, lock_mutex };
+use util::{Threadsafe, threadsafe, lock_mutex};
 
 pub const RECVBUF_LEN: usize = 4096;
 
@@ -153,7 +154,7 @@ impl Server {
     fn cleaner(db: Threadsafe<DB>) {
         info!("cleaner started");
         loop {
-            thread::sleep_ms(250);
+            thread::sleep(Duration::from_millis(250));
             {
                 let mut db = lock_mutex(&db);
                 db.clean();
