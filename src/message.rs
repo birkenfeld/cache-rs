@@ -40,7 +40,7 @@ lazy_static! {
       \s* (?P<tsop>@)                          # timestamp mark
     )?
     \s* (?P<key>[^=!?:*$]*?)                   # key
-    \s* (?P<op>[=!?:*$~])                      # operator
+    \s* (?P<op>[=!?:|*$~])                     # operator
     \s* (?P<value>[^\r\n]*?)                   # value
     \s* $
     "#).unwrap();
@@ -73,6 +73,8 @@ pub enum CacheMsg<'a> {
     AskHist   { key: Cstr<'a>, from: f64, delta: f64 },
     /// subscription to a key substring
     Subscribe { key_sub: Cstr<'a>, with_ts: bool },
+    /// unsubscription
+    Unsub     { key_sub: Cstr<'a>, with_ts: bool },
     /// set or delete of a prefix rewrite
     Rewrite   { new_prefix: Cstr<'a>, old_prefix: Cstr<'a> },
     /// lock request
@@ -135,6 +137,7 @@ impl<'a> CacheMsg<'a> {
                     },
                 "*" =>  Some(AskWC { key_wc: key.into(), with_ts: has_tsop }),
                 ":" =>  Some(Subscribe { key_sub: key.into(), with_ts: has_tsop }),
+                "|" =>  Some(Unsub { key_sub: key.into(), with_ts: has_tsop }),
                 "$" => {
                     let client = &val[1..];
                     if &val[0..1] == "+" {
@@ -194,6 +197,12 @@ impl<'a> ToString for CacheMsg<'a> {
                     format!("@{}:\n", key_sub)
                 } else {
                     format!("{}:\n", key_sub)
+                },
+            Unsub { ref key_sub, with_ts } =>
+                if with_ts {
+                    format!("@{}|\n", key_sub)
+                } else {
+                    format!("{}|\n", key_sub)
                 },
             Lock { ref key, ref client, time, ttl } => {
                 format!("{}+{}@{}$+{}\n", time, ttl, key, client)},

@@ -195,6 +195,11 @@ impl Server {
                         u.add_subscription(key, with_ts);
                     }
                 },
+                UpdaterMsg::CancelSubscription(ref addr, ref key, with_ts) => {
+                    if let Some(u) = map.get_mut(addr) {
+                        u.remove_subscription(key, with_ts);
+                    }
+                },
             }
         }
     }

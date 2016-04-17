@@ -47,6 +47,7 @@ pub struct Updater {
 pub enum UpdaterMsg {
     Update(String, Entry, Option<ClientAddr>),
     Subscription(ClientAddr, String, bool),
+    CancelSubscription(ClientAddr, String, bool),
 }
 
 /// Handles incoming queries on a connected client and executes the corresponding
@@ -65,10 +66,14 @@ impl Updater {
     }
 
     /// Add a new subscription for this client.
-    ///
-    /// Note: the protocol does not allow for canceling of subscriptions.
     pub fn add_subscription(&mut self, key: &str, with_ts: bool) {
         self.sub_list.push((key.into(), with_ts));
+    }
+
+    /// Remove a subscription for this client.
+    pub fn remove_subscription(&mut self, key: &str, with_ts: bool) {
+        let compare_item = (key.into(), with_ts);
+        self.sub_list.retain(|item| item != &compare_item);
     }
 
     /// Update this client, if the key is matched by one of the subscriptions.
@@ -156,6 +161,11 @@ impl Handler {
                 let key = key_sub.clone().into_owned();
                 let _ign = self.upd_q.send(
                     UpdaterMsg::Subscription(self.client.get_addr(), key, with_ts));
+            },
+            Unsub { ref key_sub, with_ts } => {
+                let key = key_sub.clone().into_owned();
+                let _ign = self.upd_q.send(
+                    UpdaterMsg::CancelSubscription(self.client.get_addr(), key, with_ts));
             },
             // we ignore TellOlds
             _ => (),
