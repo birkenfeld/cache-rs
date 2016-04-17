@@ -82,12 +82,10 @@ impl Entry {
                 TellTS { key: key.into(), val: self.value.clone().into(),
                          time: self.time, ttl: self.ttl, no_store: false }
             }
+        } else if self.expired {
+            TellOld { key: key.into(), val: self.value.clone().into() }
         } else {
-            if self.expired {
-                TellOld { key: key.into(), val: self.value.clone().into() }
-            } else {
-                Tell { key: key.into(), val: self.value.clone().into(), no_store: false }
-            }
+            Tell { key: key.into(), val: self.value.clone().into(), no_store: false }
         }
     }
 
@@ -384,7 +382,7 @@ impl DB {
         // then, if old is not empty, insert a new rewrite
         if old != "" {
             self.inv_rewrites.insert(new.into(), old.clone());
-            self.rewrites.entry(old).or_insert(HashSet::new()).insert(new.into());
+            self.rewrites.entry(old).or_insert_with(HashSet::new).insert(new.into());
         }
         info!("rewrites={:?} inv_rewrites={:?}",
               self.rewrites, self.inv_rewrites);
@@ -407,7 +405,7 @@ impl DB {
             let mut need_update = true;
             // write to in-memory map
             {
-                let submap = self.entry_cats.entry(cat.into()).or_insert(HashMap::new());
+                let submap = self.entry_cats.entry(cat.into()).or_insert_with(HashMap::new);
                 if let Some(ref mut entry) = submap.get_mut(subkey) {
                     // if we already have the same value, only adapt time and ttl info
                     if entry.value == val && !entry.expired {

@@ -207,12 +207,12 @@ impl Server {
             if let Ok((len, addr)) = sock.recv_from(&mut recvbuf) {
                 info!("[{}] new UDP client connected", addr);
                 let sock_clone = sock.try_clone().expect("could not clone socket");
-                let client = box UdpClient(sock_clone, addr,
-                                           Some(recvbuf[..len].to_vec()));
+                let client = UdpClient(sock_clone, addr,
+                                       Some(recvbuf[..len].to_vec()));
                 let db_clone = db.clone();
                 let (w_tmp, _r_tmp) = mpsc::channel();
                 thread::spawn(move || {
-                    Handler::new(client, w_tmp, db_clone).handle();
+                    Handler::new(box client, w_tmp, db_clone).handle();
                 });
             }
         }
@@ -222,7 +222,7 @@ impl Server {
     fn tcp_listener(self, tcp_sock: TcpListener) {
         info!("tcp listener started");
         while let Ok((stream, addr)) = tcp_sock.accept() {
-            let client = box TcpClient(stream, addr);
+            let client = TcpClient(stream, addr);
             info!("[{}] new client connected", addr);
             // create the updater object and insert it into the mapping
             let mut upd_map = lock_mutex(&self.upd_map);
@@ -233,7 +233,7 @@ impl Server {
             // create the handler and start its main thread
             let notifier = self.upd_q.clone();
             let db_clone = self.db.clone();
-            thread::spawn(move || Handler::new(client, notifier, db_clone).handle());
+            thread::spawn(move || Handler::new(box client, notifier, db_clone).handle());
         }
     }
 

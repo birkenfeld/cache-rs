@@ -59,6 +59,12 @@ impl ConsoleAppender {
     }
 }
 
+impl Default for ConsoleAppender {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Append for ConsoleAppender {
     fn append(&self, record: &LogRecord) -> Result<(), Box<Error>> {
         let mut stdout = self.stdout.lock();

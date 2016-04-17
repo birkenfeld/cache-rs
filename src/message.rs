@@ -88,7 +88,7 @@ use self::CacheMsg::*;
 impl<'a> CacheMsg<'a> {
     /// Parse a String containing a cache message.
     ///
-    /// This matches a regular expression, and then creates a CacheMsg if successful.
+    /// This matches a regular expression, and then creates a `CacheMsg` if successful.
     pub fn parse(line: &str) -> Option<CacheMsg> {
         if let Some(captures) = MSG_RE.captures(line) {
             let t1;
@@ -155,7 +155,7 @@ impl<'a> CacheMsg<'a> {
     }
 }
 
-/// "Serialize" a CacheMsg back to a String.
+/// "Serialize" a `CacheMsg` back to a String.
 ///
 /// Not all messages are actually used for stringification, but this is also
 /// nice for debugging purposes.
