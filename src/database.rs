@@ -22,6 +22,7 @@
 //
 //! This module contains the definition for the in-memory and on-disk database.
 
+use std::mem;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry as HEntry;
@@ -63,7 +64,7 @@ pub struct Entry {
 
 impl Entry {
     pub fn new(time: f64, ttl: f64, value: &str) -> Entry {
-        Entry { time: time, ttl: ttl, expired: value == "", value: String::from(value) }
+        Entry { time: time, ttl: ttl, expired: value == "", value: value.into() }
     }
 
     /// Mark the Entry as expired.
@@ -103,7 +104,7 @@ impl Entry {
         let ttlsign = if self.ttl > 0. || self.expired { "-" } else { "+" };
         writeln!(fp, "{}\t{}\t{}\t{}",
                  subkey, self.time, ttlsign,
-                 if self.expired { "-" } else { &self.value[..] })
+                 if self.expired { "-" } else { &self.value })
     }
 }
 
@@ -122,7 +123,7 @@ fn split_key(key: &str) -> (&str, &str) {
 /// Helper function to construct a full key from catname and subkey.
 fn construct_key(catname: &str, subkey: &str) -> String {
     format!("{}{}{}",
-            if catname == "nocat" { "" } else { &catname[..] },
+            if catname == "nocat" { "" } else { catname },
             if catname == "nocat" { "" } else { "/" },
             subkey)
 }
@@ -269,7 +270,7 @@ impl DB {
     /// Set the "lastday" symlink to the latest yyyy/mm-dd directory.
     fn set_lastday(&self) {
         let path = self.storepath.join("lastday");
-        let _ign = remove_file(&path);
+        let _ = remove_file(&path);
         if let Err(e) = symlink(&self.ymd_path, &path) {
             warn!("could not set \"lastday\" symlink: {}", e);
         }
@@ -282,10 +283,7 @@ impl DB {
         self.midnights = (to_timefloat(thisday),
                           to_timefloat(thisday + Duration::days(1)));
         self.ymd_path = day_path(thisday);
-        let mut new_files = HashMap::new();
-        let old_files = {
-            self.files.drain().collect::<Vec<_>>()
-        };
+        let old_files = mem::replace(&mut self.files, HashMap::new());
         for (catname, fp) in old_files {
             drop(fp);
             let submap = self.entry_cats.get(&catname).unwrap();
@@ -295,9 +293,8 @@ impl DB {
                     try!(entry.to_file(subkey, &mut new_fp));
                 }
             }
-            new_files.insert(catname, new_fp);
+            self.files.insert(catname, new_fp);
         }
-        self.files = new_files;
         self.set_lastday();
         Ok(())
     }
@@ -336,7 +333,7 @@ impl DB {
                 let parts = line.trim().split('\t').collect::<Vec<_>>();
                 if parts.len() == 4 && parts[0] == subkey {
                     let val = if parts[3] == "-" { "" } else { parts[3] };
-                    res.push((parts[1].parse().unwrap_or(0.), String::from(val)));
+                    res.push((parts[1].parse().unwrap_or(0.), val.into()));
                 }
             }
         }
@@ -355,10 +352,10 @@ impl DB {
                     debug!("cleaner: {}/{} expired", catname, subkey);
                     entry.expired = true;
                     let fullkey = construct_key(catname, subkey);
-                    let _ign = self.upd_q.send(
+                    let _ = self.upd_q.send(
                         UpdaterMsg::Update(fullkey, entry.clone(), None));
                     let mut fp = self.files.get_mut(catname).unwrap();
-                    let _ign = entry.to_file(subkey, &mut fp);
+                    let _ = entry.to_file(subkey, &mut fp);
                 }
             }
         }
@@ -397,8 +394,8 @@ impl DB {
         let (catname, subkey) = split_key(key);
         let mut newcats = vec![catname];
         // process rewrites for this key's prefix (= category)
-        if let Some(rew_cats) = self.rewrites.get(catname) {
-            newcats.extend(rew_cats.iter().map(|s| &s[..]));
+        if let Some(rewrite_cats) = self.rewrites.get(catname) {
+            newcats.extend(rewrite_cats.iter().map(String::as_str));
         }
         let entry = Entry::new(time, ttl, val);
         for cat in newcats {
@@ -504,7 +501,7 @@ impl DB {
     pub fn lock(&mut self, lock: bool, key: &str, client: &str, time: f64, ttl: f64,
                 send_q: &mpsc::Sender<String>) {
         // find existing lock entry (these are in a different namespace from normal keys)
-        let entry = self.locks.entry(String::from(key));
+        let entry = self.locks.entry(key.into());
         let msg = if lock {
             match entry {
                 HEntry::Occupied(mut entry) => {

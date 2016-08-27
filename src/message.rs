@@ -109,18 +109,14 @@ impl<'a> CacheMsg<'a> {
             let val = captures.name("value").unwrap_or("");
             match captures.name("op").expect("no op in match?!") {
                 "=" => {
-                    let mut idx = key.len();
-                    let mut no_store = false;
                     // handle the "no store" flag, a "#" after the key name
-                    if key.ends_with('#') {
-                        idx -= 1;
-                        no_store = true;
-                    }
+                    let no_store = key.ends_with('#');
+                    let real_key = if no_store { &key[0..key.len() - 1] } else { &key };
                     if has_tsop {
-                        Some(TellTS { key: (&key[0..idx]).into(), val: val.into(),
+                        Some(TellTS { key: real_key.into(), val: val.into(),
                                       time: t1, ttl: dt, no_store: no_store })
                     } else {
-                        Some(Tell { key: (&key[0..idx]).into(), val: val.into(),
+                        Some(Tell { key: real_key.into(), val: val.into(),
                                     no_store: no_store })
                     }},
                 "!" =>

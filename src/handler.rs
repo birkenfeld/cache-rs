@@ -132,38 +132,38 @@ impl Handler {
         match *msg {
             // key updates
             Tell { ref key, ref val, no_store } =>
-                if let Err(err) = db.tell(&*key, &*val, localtime(), 0., no_store,
+                if let Err(err) = db.tell(key, val, localtime(), 0., no_store,
                                           self.client.get_addr()) {
                     warn!("could not write key {} to db: {}", key, err);
                 },
             TellTS { time, ttl, ref key, ref val, no_store } =>
-                if let Err(err) = db.tell(&*key, &*val, time, ttl, no_store,
+                if let Err(err) = db.tell(key, val, time, ttl, no_store,
                                           self.client.get_addr()) {
                     warn!("could not write key {} to db: {}", key, err);
                 },
             // key inquiries
             Ask { ref key, with_ts } =>
-                db.ask(&*key, with_ts, &self.send_q),
+                db.ask(key, with_ts, &self.send_q),
             AskWC { ref key_wc, with_ts } =>
-                db.ask_wc(&*key_wc, with_ts, &self.send_q),
+                db.ask_wc(key_wc, with_ts, &self.send_q),
             AskHist { ref key, from, delta } =>
-                db.ask_hist(&*key, from, delta, &self.send_q),
+                db.ask_hist(key, from, delta, &self.send_q),
             // locking
             Lock { ref key, ref client, time, ttl } =>
-                db.lock(true, &*key, &*client, time, ttl, &self.send_q),
+                db.lock(true, key, client, time, ttl, &self.send_q),
             Unlock { ref key, ref client } =>
-                db.lock(false, &*key, &*client, 0., 0., &self.send_q),
+                db.lock(false, key, client, 0., 0., &self.send_q),
             // meta messages
             Rewrite { ref new_prefix, ref old_prefix } =>
                 db.rewrite(new_prefix, old_prefix),
             Subscribe { ref key_sub, with_ts } => {
                 let key = key_sub.clone().into_owned();
-                let _ign = self.upd_q.send(
+                let _ = self.upd_q.send(
                     UpdaterMsg::Subscription(self.client.get_addr(), key, with_ts));
             },
             Unsub { ref key_sub, with_ts } => {
                 let key = key_sub.clone().into_owned();
-                let _ign = self.upd_q.send(
+                let _ = self.upd_q.send(
                     UpdaterMsg::CancelSubscription(self.client.get_addr(), key, with_ts));
             },
             // we ignore TellOlds
@@ -174,19 +174,21 @@ impl Handler {
     /// Process a single line (message).
     fn process(&mut self, line: &str) -> bool {
         match CacheMsg::parse(line) {
-            None => {
-                // not a valid cache protocol line => ignore it
-                warn!("[{}] strange line: {:?}", self.name, line);
-            },
             Some(Quit) => {
                 // an empty line closes the connection
-                return false;
+                false
             }
             Some(msg) => {
                 debug!("[{}] processing {:?} => {:?}", self.name, line, msg);
                 self.handle_msg(&msg);
-            },
-        }; true
+                true
+            }
+            None => {
+                // not a valid cache protocol line => ignore it
+                warn!("[{}] strange line: {:?}", self.name, line);
+                true
+            }
+        }
     }
 
     /// Handle incoming stream of messages.

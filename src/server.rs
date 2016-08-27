@@ -128,10 +128,8 @@ impl Server {
             if let Err(e) = db.clear_db() {
                 warn!("could not clear existing database: {}", e);
             }
-        } else {
-            if let Err(e) = db.load_db() {
-                warn!("could not read existing database: {}", e);
-            }
+        } else if let Err(e) = db.load_db() {
+            warn!("could not read existing database: {}", e);
         }
         let db = threadsafe(db);
 
@@ -180,7 +178,7 @@ impl Server {
                             // back to this client
                             Some(ref a) if a == addr => { },
                             _ => {
-                                if !updater.update(&key, &entry) {
+                                if !updater.update(key, entry) {
                                     to_drop.push(*addr);
                                 }
                             }
