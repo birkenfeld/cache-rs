@@ -22,7 +22,6 @@
 //
 //! This module contains the handler for a single network connection.
 
-use std::io::{Read, Write};
 use std::sync::mpsc;
 use std::thread;
 
