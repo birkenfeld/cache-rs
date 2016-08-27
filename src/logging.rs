@@ -143,10 +143,10 @@ pub fn init<P: AsRef<Path>>(log_path: P, srvname: &str, debug: bool,
         root_cfg = root_cfg.appender("con".into());
     }
     let mut config = Config::builder()
-        .appender(Appender::builder().build("file".into(), box file_appender));
+        .appender(Appender::builder().build("file".into(), Box::new(file_appender)));
     if use_stdout {
         let con_appender = ConsoleAppender::new();
-        config = config.appender(Appender::builder().build("con".into(), box con_appender));
+        config = config.appender(Appender::builder().build("con".into(), Box::new(con_appender)));
     }
     let config = config.build(root_cfg.build(if debug { LogLevelFilter::Debug }
                                              else { LogLevelFilter::Info }))

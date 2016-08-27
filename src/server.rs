@@ -60,7 +60,7 @@ impl Client for TcpClient {
         self.0.write(buf)
     }
     fn try_clone(&self) -> io::Result<Box<Client>> {
-        self.0.try_clone().map(|s| (box TcpClient(s, self.1) as Box<Client>))
+        self.0.try_clone().map(|s| (Box::new(TcpClient(s, self.1)) as Box<Client>))
     }
     fn close(&mut self) {
         let _ = self.0.shutdown(Shutdown::Both);
@@ -90,7 +90,7 @@ impl Client for UdpClient {
         Ok(n)
     }
     fn try_clone(&self) -> io::Result<Box<Client>> {
-        self.0.try_clone().map(|s| (box UdpClient(s, self.1, None) as Box<Client>))
+        self.0.try_clone().map(|s| (Box::new(UdpClient(s, self.1, None)) as Box<Client>))
     }
     fn close(&mut self) { }
     fn get_addr(&self) -> ClientAddr { self.1 }
@@ -217,7 +217,7 @@ impl Server {
                 let db_clone = db.clone();
                 let (w_tmp, _r_tmp) = mpsc::channel();
                 thread::spawn(move || {
-                    Handler::new(box client, w_tmp, db_clone).handle();
+                    Handler::new(Box::new(client), w_tmp, db_clone).handle();
                 });
             }
         }
@@ -238,7 +238,7 @@ impl Server {
             // create the handler and start its main thread
             let notifier = self.upd_q.clone();
             let db_clone = self.db.clone();
-            thread::spawn(move || Handler::new(box client, notifier, db_clone).handle());
+            thread::spawn(move || Handler::new(Box::new(client), notifier, db_clone).handle());
         }
     }
 

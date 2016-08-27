@@ -22,10 +22,6 @@
 //
 //! The main entry point and crate definitions.
 
-// let's use some unstable features :)
-#![feature(box_syntax, plugin)]
-#![plugin(docopt_macros)]
-
 #[macro_use]
 extern crate log;
 extern crate log4rs;
@@ -49,7 +45,7 @@ mod logging;
 mod util;
 
 
-docopt!(Args derive Debug, "
+const USAGE: &'static str = "
 Usage: cache-rs [options]
        cache-rs --help
 
@@ -66,11 +62,24 @@ Options:
     --user USER        User name for daemon
     --group GROUP      Group name for daemon
     --clear            Clear the database on startup?
-", flag_user: Option<String>, flag_group: Option<String>);
+";
 
+
+#[derive(Debug, RustcDecodable)]
+struct Args {
+    flag_v: bool,
+    flag_bind: String,
+    flag_store: String,
+    flag_log: String,
+    flag_pid: String,
+    flag_d: bool,
+    flag_user: Option<String>,
+    flag_group: Option<String>,
+    flag_clear: bool,
+}
 
 fn main() {
-    let args: Args = Args::docopt().decode().unwrap_or_else(|e| e.exit());
+    let args: Args = docopt::Docopt::new(USAGE).unwrap().decode().unwrap_or_else(|e| e.exit());
 
     let log_path = std::path::Path::new(&args.flag_log);
     if let Err(err) = logging::init(&log_path, "cache-rs",

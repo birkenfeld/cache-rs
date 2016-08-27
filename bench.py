@@ -1,6 +1,5 @@
 import socket
 import time
-import sys
 import random
 import optparse
 import threading
