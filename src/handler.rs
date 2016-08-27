@@ -193,7 +193,7 @@ impl Handler {
 
     /// Handle incoming stream of messages.
     pub fn handle(&mut self) {
-        let mut buf = String::with_capacity(RECVBUF_LEN);
+        let mut buf = Vec::with_capacity(RECVBUF_LEN);
         let mut recvbuf = [0u8; RECVBUF_LEN];
 
         'outer: loop {
@@ -207,17 +207,18 @@ impl Handler {
                 Ok(got)  => got,
             };
             // convert to string and add to our buffer
-            buf.push_str(&String::from_utf8_lossy(&recvbuf[0..got]));
+            buf.extend_from_slice(&recvbuf[0..got]);
             // process all whole lines we got
             let mut from = 0;
-            while let Some(to) = buf[from..].find('\n') {
-                if !self.process(&buf[from..from+to+1]) {
+            while let Some(to) = buf[from..].iter().position(|b| *b == b'\n') {
+                let line_str = String::from_utf8_lossy(&buf[from..from+to+1]);
+                if !self.process(&line_str) {
                     // false return value means "quit"
                     break 'outer;
                 }
                 from += to + 1;
             }
-            buf = String::from(&buf[from..]);
+            buf.drain(0..from);
         }
         info!("[{}] handler is finished", self.name);
         self.client.close();
