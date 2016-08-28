@@ -91,12 +91,14 @@ fn main() {
         println!("could not initialize logging: {}", err);
     }
     if args.flag_d {
-        let settings = daemonize::DaemonSettings {
-            user:  args.flag_user.map(daemonize::Acct::ByName),
-            group: args.flag_group.map(daemonize::Acct::ByName),
-            umask: None
-        };
-        if let Err(err) = daemonize::daemonize(settings) {
+        let mut daemon = daemonize::Daemonize::new();
+        if let Some(user) = args.flag_user {
+            daemon = daemon.user(user.as_str());
+        }
+        if let Some(group) = args.flag_group {
+            daemon = daemon.group(group.as_str());
+        }
+        if let Err(err) = daemon.start() {
             error!("could not daemonize process: {}", err);
         }
     }
