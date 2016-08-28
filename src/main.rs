@@ -34,10 +34,14 @@ extern crate lazy_static;
 extern crate daemonize;
 extern crate rustc_serialize;
 extern crate chan_signal;
+extern crate postgres;
 
 use chan_signal::Signal;
 
+mod entry;
 mod database;
+mod store_flat;
+mod store_pgsql;
 mod handler;
 mod message;
 mod server;

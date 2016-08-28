@@ -25,7 +25,8 @@
 use std::sync::mpsc;
 use std::thread;
 
-use database::{DB, Entry};
+use entry::Entry;
+use database::DB;
 use message::CacheMsg;
 use message::CacheMsg::*;
 use util::{Threadsafe, localtime, lock_mutex};

@@ -13,6 +13,7 @@ ansi_term = "*"
 lazy_static = "*"
 rustc-serialize = "*"
 chan-signal = "*"
+postgres = "*"
 
 [dependencies.daemonize]
 git = "https://github.com/birkenfeld/daemonize-rs"
