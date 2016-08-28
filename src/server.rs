@@ -31,7 +31,7 @@ use std::thread;
 use std::time::Duration;
 
 use handler::{Updater, Handler, UpdaterMsg};
-use database::{DB, Store};
+use database::{DB, StorePath, Store};
 use store_flat::Store as FlatStore;
 use store_pgsql::Store as PgSqlStore;
 use util::{Threadsafe, threadsafe, lock_mutex};
@@ -119,15 +119,16 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(storepath: &str, clear_db: bool) -> Server {
+    pub fn new(storepath: StorePath, clear_db: bool) -> Server {
         // create a channel to send updated keys to the updater thread
         let (w_updates, r_updates) = mpsc::channel();
 
         // create the database object itself and wrap it into the mutex
-        let store: Box<Store> = if storepath.starts_with("postgresql://") {
-            Box::new(PgSqlStore::new(storepath))
-        } else {
-            Box::new(FlatStore::new(storepath))
+        let store: Box<Store> = match storepath {
+            StorePath::Fs(path) => Box::new(FlatStore::new(path)),
+            StorePath::Uri(ref uri) if uri.starts_with("postgresql://") =>
+                Box::new(PgSqlStore::new(uri)),
+            StorePath::Uri(uri) => panic!("store URI {} not supported", uri)
         };
         let mut db = DB::new(store, w_updates.clone());
         info!("loading stored database...");

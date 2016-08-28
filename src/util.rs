@@ -24,7 +24,7 @@
 
 use std::io::{self, Write};
 use std::fs::{DirBuilder, OpenOptions, File, read_link, remove_file};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use time;
@@ -96,17 +96,18 @@ pub fn threadsafe<T>(obj: T) -> Threadsafe<T> {
 
 
 /// Write a PID file.
-pub fn write_pidfile(pid_path: &str) -> io::Result<()> {
+pub fn write_pidfile<P: AsRef<Path>>(pid_path: P) -> io::Result<()> {
+    let pid_path = pid_path.as_ref();
     try!(ensure_dir(pid_path));
-    let file = Path::new(pid_path).join("cache-rs.pid");
+    let file = pid_path.join("cache-rs.pid");
     let my_pid = try!(read_link("/proc/self"));
     let my_pid = my_pid.as_os_str().to_str().unwrap().as_bytes();
     try!(File::create(file)).write(my_pid).map(|_| ())
 }
 
 /// Remove a PID file.
-pub fn remove_pidfile(pid_path: &str) {
-    let file = Path::new(pid_path).join("cache-rs.pid");
+pub fn remove_pidfile<P: AsRef<Path>>(pid_path: P) {
+    let file = Path::new(pid_path.as_ref()).join("cache-rs.pid");
     let _ = remove_file(file);
 }
 
@@ -123,4 +124,9 @@ pub fn open_file<P: AsRef<Path>>(path: P, mode: &str) -> io::Result<File> {
         }
     }
     opt.open(path)
+}
+
+/// Remove a PID file.
+pub fn abspath<P: AsRef<Path>>(path: P) -> PathBuf {
+    path.as_ref().canonicalize().unwrap()
 }

@@ -27,7 +27,7 @@ use std::collections::HashMap;
 use std::fs::{File, read_dir, remove_file, hard_link, remove_dir_all};
 use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
 use std::os::unix::fs::symlink;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::mpsc;
 
 use time::{now, Tm, Duration};
@@ -60,10 +60,10 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(storepath: &str) -> Store {
+    pub fn new(storepath: PathBuf) -> Store {
         let thisday = Tm { tm_hour: 0, tm_min: 0, tm_sec: 0, tm_nsec: 0, ..now() };
         Store {
-            storepath: Path::new(storepath).to_path_buf(),
+            storepath: storepath,
             files: HashMap::new(),
             midnights: (to_timefloat(thisday),
                         to_timefloat(thisday + Duration::days(1))),

@@ -36,8 +36,6 @@ extern crate rustc_serialize;
 extern crate chan_signal;
 extern crate postgres;
 
-use chan_signal::Signal;
-
 mod entry;
 mod database;
 mod store_flat;
@@ -85,9 +83,14 @@ struct Args {
 fn main() {
     let args: Args = docopt::Docopt::new(USAGE).unwrap().decode().unwrap_or_else(|e| e.exit());
 
-    let log_path = std::path::Path::new(&args.flag_log);
-    if let Err(err) = logging::init(&log_path, "cache-rs",
-                                    args.flag_v, !args.flag_d) {
+    let log_path = util::abspath(&args.flag_log);
+    let pid_path = util::abspath(&args.flag_pid);
+    let store_path = if args.flag_store.contains("://") {
+        database::StorePath::Uri(args.flag_store)
+    } else {
+        database::StorePath::Fs(util::abspath(&args.flag_store))
+    };
+    if let Err(err) = logging::init(log_path, "cache-rs", args.flag_v, !args.flag_d) {
         println!("could not initialize logging: {}", err);
     }
     if args.flag_d {
@@ -102,14 +105,14 @@ fn main() {
             error!("could not daemonize process: {}", err);
         }
     }
-    if let Err(err) = util::write_pidfile(&args.flag_pid) {
+    if let Err(err) = util::write_pidfile(pid_path) {
         error!("could not write PID file: {}", err);
     }
 
     // handle SIGINT and SIGTERM
-    let signal_chan = chan_signal::notify(&[Signal::INT, Signal::TERM]);
+    let signal_chan = chan_signal::notify(&[chan_signal::Signal::INT, chan_signal::Signal::TERM]);
 
-    let server = server::Server::new(&args.flag_store, args.flag_clear);
+    let server = server::Server::new(store_path, args.flag_clear);
     info!("starting server on {}...", args.flag_bind);
     if let Err(err) = server.start(&args.flag_bind) {
         error!("could not initialize server: {}", err);

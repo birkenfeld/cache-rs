@@ -25,6 +25,7 @@
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry as HEntry;
 use std::io;
+use std::path::PathBuf;
 use std::sync::mpsc;
 
 use entry::{Entry, BATCHSIZE, split_key, construct_key};
@@ -34,6 +35,12 @@ use server::ClientAddr;
 use message::CacheMsg::LockRes;
 
 pub type EntryMap = HashMap<String, HashMap<String, Entry>>;
+
+/// Represents different ways to specify a store path.
+pub enum StorePath {
+    Fs(PathBuf),
+    Uri(String)
+}
 
 /// Represents the database of key-value entries.
 pub struct DB {
