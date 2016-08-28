@@ -98,7 +98,7 @@ impl RollingFileAppender {
     pub fn new(dir: &Path, prefix: &str) -> RollingFileAppender {
         let thisday = Tm { tm_hour: 0, tm_min: 0, tm_sec: 0, tm_nsec: 0, ..now() };
         let roll_at = (thisday + Duration::days(1)).to_timespec();
-        let pattern = PatternEncoder::new("{d(%H:%M:%S,%f)} : {l:<5} : {m}{n}");
+        let pattern = PatternEncoder::new("{d(%H:%M:%S,%f)(local)} : {l:<5} : {m}{n}");
         let link_fn = dir.join("current");
         let prefix = prefix.replace("/", "-");
         RollingFileAppender { dir: dir.to_path_buf(), prefix: prefix, link_fn: link_fn,
