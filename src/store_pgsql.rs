@@ -48,17 +48,18 @@ impl database::Store for Store {
         try!(self.connection.batch_execute(
             "DROP TABLE IF EXISTS values; \
              CREATE UNLOGGED TABLE values \
-             ( key TEXT, value TEXT, time DOUBLE PRECISION, expires BOOL );"));
+               ( key TEXT, value TEXT, time DOUBLE PRECISION, expires BOOL ); \
+             CREATE INDEX ON values ( key );"));
         Ok(())
     }
 
     /// Load the latest DB entries.
     fn load_latest(&mut self, entry_map: &mut EntryMap) -> io::Result<()> {
         let query = "WITH max_ts AS \
-                     ( SELECT key, MAX(time) \"time\" FROM values GROUP BY key ) \
+                       ( SELECT key, MAX(time) \"time\" FROM values GROUP BY key ) \
                      SELECT values.key, values.value, values.time, values.expires \
-                     FROM values, max_ts \
-                     WHERE max_ts.key = values.key AND max_ts.time = values.time;";
+                       FROM values, max_ts \
+                       WHERE max_ts.key = values.key AND max_ts.time = values.time;";
         let result = try!(self.connection.query(query, &[]));
         let num_rows = result.len();
         for row in &result {
@@ -83,7 +84,7 @@ impl database::Store for Store {
     /// Insert a new key-value entry.
     fn save(&mut self, catname: &str, subkey: &str, entry: &Entry) -> io::Result<()> {
         let query = "INSERT INTO values ( key, value, time, expires ) \
-                     VALUES ( $1, $2, $3, $4 );";
+                       VALUES ( $1, $2, $3, $4 );";
         let key = construct_key(catname, subkey);
         let expires = entry.ttl > 0. || entry.expired;
         try!(self.connection.execute(query, &[&key, &entry.value, &entry.time, &expires]));
@@ -93,7 +94,7 @@ impl database::Store for Store {
     /// Send history to client.
     fn query_history(&mut self, key: &str, from: f64, to: f64, send: &mut FnMut(f64, &str)) {
         let query = "SELECT values.key, values.value, values.time FROM values \
-                     WHERE key = $1 AND time >= $2 AND time <= $3 ORDER BY time;";
+                       WHERE key = $1 AND time >= $2 AND time <= $3 ORDER BY time;";
         if let Ok(result) = self.connection.query(query, &[&key, &from, &to]) {
             for row in &result {
                 let val: String = row.get(1);
