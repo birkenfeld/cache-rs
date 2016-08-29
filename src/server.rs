@@ -131,13 +131,16 @@ impl Server {
             StorePath::Uri(uri) => panic!("store URI {} not supported", uri)
         };
         let mut db = DB::new(store, w_updates.clone());
-        info!("loading stored database...");
         if clear_db {
+            info!("clearing stored database...");
             if let Err(e) = db.clear_db() {
                 warn!("could not clear existing database: {}", e);
             }
-        } else if let Err(e) = db.load_db() {
-            warn!("could not read existing database: {}", e);
+        } else {
+            info!("loading stored database...");
+            if let Err(e) = db.load_db() {
+                warn!("could not read existing database: {}", e);
+            }
         }
         let db = threadsafe(db);
 
