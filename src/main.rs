@@ -111,7 +111,8 @@ fn main() {
     // handle SIGINT and SIGTERM
     let signal_chan = chan_signal::notify(&[chan_signal::Signal::INT, chan_signal::Signal::TERM]);
 
-    let server = server::Server::new(store_path, args.flag_clear);
+    let server = server::Server::new(store_path, args.flag_clear)
+        .unwrap_or_else(|_| std::process::exit(1));
     info!("starting server on {}...", args.flag_bind);
     if let Err(err) = server.start(&args.flag_bind) {
         error!("could not initialize server: {}", err);

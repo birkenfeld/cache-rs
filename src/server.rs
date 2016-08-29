@@ -141,15 +141,22 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(storepath: StorePath, clear_db: bool) -> Server {
+    pub fn new(storepath: StorePath, clear_db: bool) -> Result<Server, ()> {
         // create a channel to send updated keys to the updater thread
         let (w_updates, r_updates) = mpsc::channel();
 
         // create the database object itself and wrap it into the mutex
         let store: Box<Store> = match storepath {
             StorePath::Fs(path) => Box::new(FlatStore::new(path)),
-            StorePath::Uri(ref uri) if uri.starts_with("postgresql://") =>
-                Box::new(PgSqlStore::new(uri)),
+            StorePath::Uri(ref uri) if uri.starts_with("postgresql://") => {
+                match PgSqlStore::new(uri) {
+                    Ok(store) => Box::new(store),
+                    Err(err) => {
+                        error!("could not connect to Postgres: {}", err);
+                        return Err(());
+                    }
+                }
+            }
             StorePath::Uri(uri) => panic!("store URI {} not supported", uri)
         };
         let mut db = DB::new(store, w_updates.clone());
@@ -177,7 +184,7 @@ impl Server {
         let upd_map_clone = upd_map.clone();
         thread::spawn(move || Server::updater(r_updates, upd_map_clone));
 
-        Server { db: db, upd_q: w_updates, upd_map: upd_map }
+        Ok(Server { db: db, upd_q: w_updates, upd_map: upd_map })
     }
 
     /// Periodically call the database's "clean" function, which searches for

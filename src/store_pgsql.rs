@@ -26,7 +26,7 @@ use std::io;
 use std::collections::HashMap;
 use std::sync::mpsc;
 
-use postgres::{Connection, SslMode};
+use postgres::{self, Connection, SslMode};
 
 use database::{self, EntryMap};
 use message::CacheMsg::TellTS;
@@ -39,9 +39,9 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(url: &str) -> Store {
+    pub fn new(url: &str) -> Result<Store, postgres::error::ConnectError> {
         // XXX: create table if not present? check schema?
-        Store { connection: Connection::connect(url, SslMode::None).unwrap() }
+        Ok(Store { connection: try!(Connection::connect(url, SslMode::None)) })
     }
 }
 
