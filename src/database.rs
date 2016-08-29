@@ -25,7 +25,6 @@
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry as HEntry;
 use std::io;
-use std::path::PathBuf;
 use std::sync::mpsc;
 
 use entry::{Entry, BATCHSIZE, split_key, construct_key};
@@ -36,15 +35,14 @@ use message::CacheMsg::LockRes;
 
 pub type EntryMap = HashMap<String, HashMap<String, Entry>>;
 
-/// Represents different ways to specify a store path.
-pub enum StorePath {
-    Fs(PathBuf),
-    Uri(String)
-}
-
 /// Represents the database of key-value entries.
+///
+/// The database object is split into the part that deals with in-memory store
+/// of the current key-value set and the part that deals with storing the history
+/// and querying past values.  The latter part (`Store`) is factored out into
+/// a trait and pluggable.
 pub struct DB {
-    /// Store backend.
+    /// Store backend (dynamically dispatched).
     store:        Box<Store>,
     /// Map of keys, first by categories (key prefixes) then by subkey.
     entry_map:    EntryMap,
@@ -59,12 +57,17 @@ pub struct DB {
 }
 
 pub trait Store : Send {
+    /// Clear all stored data.  Used for --clear invocation.
     fn clear(&mut self) -> io::Result<()>;
-    fn load_latest(&mut self, &mut EntryMap) -> io::Result<()>;
-    fn tell_hook(&mut self, &Entry, &mut EntryMap) -> io::Result<()>;
-    fn save(&mut self, &str, &str, &Entry) -> io::Result<()>;
-    // XXX: this should take an iterator over Entries
-    fn send_history(&mut self, &str, f64, f64, &mpsc::Sender<String>);
+    /// Load latest key-value set from stored data.
+    fn load_latest(&mut self, entry_map: &mut EntryMap) -> io::Result<()>;
+    /// Called when a new key is set.  Used to roll over stores or similar.
+    fn tell_hook(&mut self, entry: &Entry, entry_map: &mut EntryMap) -> io::Result<()>;
+    /// Save a new entry to the store.
+    fn save(&mut self, catname: &str, subkey: &str, entry: &Entry) -> io::Result<()>;
+    // XXX: this should really return an iterator over Entries
+    /// Send history of entries for a specified key to given client.
+    fn send_history(&mut self, key: &str, from: f64, to: f64, sender: &mpsc::Sender<String>);
 }
 
 impl DB {
@@ -109,8 +112,6 @@ impl DB {
             }
         }
     }
-
-    // Public API used by the Handler
 
     /// Set or delete a prefix rewrite entry.
     pub fn rewrite(&mut self, new: &str, old: &str) {

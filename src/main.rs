@@ -86,9 +86,9 @@ fn main() {
     let log_path = util::abspath(&args.flag_log);
     let pid_path = util::abspath(&args.flag_pid);
     let store_path = if args.flag_store.contains("://") {
-        database::StorePath::Uri(args.flag_store)
+        server::StorePath::Uri(args.flag_store)
     } else {
-        database::StorePath::Fs(util::abspath(&args.flag_store))
+        server::StorePath::Fs(util::abspath(&args.flag_store))
     };
     if let Err(err) = logging::init(log_path, "cache-rs", args.flag_v, !args.flag_d) {
         println!("could not initialize logging: {}", err);

@@ -132,6 +132,7 @@ impl database::Store for Store {
         }
     }
 
+    /// Roll over store files when needed.
     fn tell_hook(&mut self, entry: &Entry, entry_map: &mut EntryMap) -> io::Result<()> {
         if entry.time >= self.midnights.1 {
             try!(self.rollover(entry_map));
@@ -139,6 +140,7 @@ impl database::Store for Store {
         Ok(())
     }
 
+    /// Save new key-value entry to the right file.
     fn save(&mut self, cat: &str, subkey: &str, entry: &Entry) -> io::Result<()> {
         if !self.files.contains_key(cat) {
             let fp = try!(self.create_fd(cat));
@@ -148,6 +150,7 @@ impl database::Store for Store {
         entry.to_file(subkey, fp)
     }
 
+    /// Send history of a key to client.
     fn send_history(&mut self, key: &str, from: f64, to: f64, send_q: &mpsc::Sender<String>) {
         let (catname, subkey) = split_key(key);
         let paths = if from >= self.midnights.0 {

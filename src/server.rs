@@ -26,12 +26,13 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpStream, TcpListener, UdpSocket, Shutdown};
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
 use handler::{Updater, Handler, UpdaterMsg};
-use database::{DB, StorePath, Store};
+use database::{DB, Store};
 use store_flat::Store as FlatStore;
 use store_pgsql::Store as PgSqlStore;
 use util::{Threadsafe, threadsafe, lock_mutex};
@@ -40,6 +41,13 @@ pub const RECVBUF_LEN: usize = 4096;
 
 pub type ClientAddr = SocketAddr;
 
+/// Represents different ways to specify a store path.
+pub enum StorePath {
+    /// Specified as a normal filesystem path.  Uses the flat-file backend.
+    Fs(PathBuf),
+    /// Specified as an URI.  Currently only the postgresql:// scheme is supported.
+    Uri(String),
+}
 
 /// A trait abstracting our notion of a client -- could be TCP or UDP sockets in
 /// the IP or Unix domain.

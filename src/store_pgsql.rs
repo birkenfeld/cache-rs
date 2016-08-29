@@ -32,15 +32,15 @@ use database::{self, EntryMap};
 use message::CacheMsg::TellTS;
 use entry::{BATCHSIZE, Entry, split_key, construct_key};
 
-/// Represents the database of key-value entries.
+/// Represents the Postgres backend store.
 pub struct Store {
     /// Postgres connection.
     connection:   Connection,
 }
 
 impl Store {
-    /// Create a new empty database.
     pub fn new(url: &str) -> Store {
+        // XXX: create table if not present? check schema?
         Store { connection: Connection::connect(url, SslMode::None).unwrap() }
     }
 }
@@ -75,10 +75,12 @@ impl database::Store for Store {
         Ok(())
     }
 
+    /// Nothing to do here.
     fn tell_hook(&mut self, _: &Entry, _: &mut EntryMap) -> io::Result<()> {
         Ok(())
     }
 
+    /// Insert a new key-value entry.
     fn save(&mut self, catname: &str, subkey: &str, entry: &Entry) -> io::Result<()> {
         let query = "INSERT INTO values ( key, value, time, expires ) \
                      VALUES ( $1, $2, $3, $4 );";
@@ -88,6 +90,7 @@ impl database::Store for Store {
         Ok(())
     }
 
+    /// Send history to client.
     fn send_history(&mut self, key: &str, from: f64, to: f64, send_q: &mpsc::Sender<String>) {
         let query = "SELECT values.key, values.value, values.time FROM values \
                      WHERE key = $1 AND time >= $2 AND time <= $3 ORDER BY time;";
