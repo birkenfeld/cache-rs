@@ -35,7 +35,7 @@ use handler::{Updater, Handler, UpdaterMsg};
 use database::{DB, Store};
 use store_flat::Store as FlatStore;
 use store_pgsql::Store as PgSqlStore;
-use util::{Threadsafe, threadsafe, lock_mutex};
+use util::{Threadsafe, threadsafe, lock_mutex, abspath};
 
 pub const RECVBUF_LEN: usize = 4096;
 
@@ -47,6 +47,20 @@ pub enum StorePath {
     Fs(PathBuf),
     /// Specified as an URI.  Currently only the postgresql:// scheme is supported.
     Uri(String),
+}
+
+impl StorePath {
+    pub fn parse(path: String) -> Result<StorePath, &'static str> {
+        if path.contains("://") {
+            if path.starts_with("postgresql://") {
+                Ok(StorePath::Uri(path))
+            } else {
+                Err("the given URI scheme is not supported")
+            }
+        } else {
+            Ok(StorePath::Fs(abspath(&path)))
+        }
+    }
 }
 
 /// A trait abstracting our notion of a client -- could be TCP or UDP sockets in

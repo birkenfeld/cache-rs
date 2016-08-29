@@ -85,14 +85,13 @@ fn main() {
 
     let log_path = util::abspath(&args.flag_log);
     let pid_path = util::abspath(&args.flag_pid);
-    let store_path = if args.flag_store.contains("://") {
-        server::StorePath::Uri(args.flag_store)
-    } else {
-        server::StorePath::Fs(util::abspath(&args.flag_store))
-    };
     if let Err(err) = logging::init(log_path, "cache-rs", args.flag_v, !args.flag_d) {
         println!("could not initialize logging: {}", err);
     }
+    let store_path = server::StorePath::parse(args.flag_store).unwrap_or_else(|err| {
+        error!("invalid store path: {}", err);
+        std::process::exit(1);
+    });
     if args.flag_d {
         let mut daemon = daemonize::Daemonize::new();
         if let Some(user) = args.flag_user {
