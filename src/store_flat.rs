@@ -28,14 +28,12 @@ use std::fs::{File, read_dir, remove_file, hard_link, remove_dir_all};
 use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
 use std::os::unix::fs::symlink;
 use std::path::PathBuf;
-use std::sync::mpsc;
 
 use time::{now, Tm, Duration};
 
 use database::{self, EntryMap};
-use entry::{Entry, BATCHSIZE, split_key};
+use entry::{Entry, split_key};
 use util::{ensure_dir, to_timefloat, day_path, all_days, open_file};
-use message::CacheMsg::TellTS;
 
 impl Entry {
     /// Write the Entry to a store file.
@@ -151,31 +149,23 @@ impl database::Store for Store {
     }
 
     /// Send history of a key to client.
-    fn send_history(&mut self, key: &str, from: f64, to: f64, send_q: &mpsc::Sender<String>) {
+    fn query_history(&mut self, key: &str, from: f64, to: f64, send: &mut FnMut(f64, &str)) {
         let (catname, subkey) = split_key(key);
         let paths = if from >= self.midnights.0 {
             vec![self.ymd_path.clone()]
         } else {
             all_days(from, to)
         };
-        let mut res = Vec::with_capacity(BATCHSIZE);
         for path in paths {
             match self.read_history(&path, catname, subkey) {
                 Err(e)   => warn!("could not read histfile for {}/{}: {}", path, catname, e),
-                Ok(msgs) => {
-                    for (time, val) in msgs {
+                Ok(msgs) => for (time, val) in msgs {
                     if from <= time && time <= to {
-                        res.push(TellTS { key: key.into(), val: val.into(), time: time,
-                                          ttl: 0., no_store: false }.to_string());
-                        if res.len() >= BATCHSIZE {
-                            let _ = send_q.send(res.join(""));
-                            res.clear();
-                        }
+                        send(time, &val);
                     }
-                }}
+                },
             }
         }
-        let _ = send_q.send(res.join(""));
     }
 }
 

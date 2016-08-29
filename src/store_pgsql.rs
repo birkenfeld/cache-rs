@@ -24,13 +24,11 @@
 
 use std::io;
 use std::collections::HashMap;
-use std::sync::mpsc;
 
 use postgres::{self, Connection, SslMode};
 
 use database::{self, EntryMap};
-use message::CacheMsg::TellTS;
-use entry::{BATCHSIZE, Entry, split_key, construct_key};
+use entry::{Entry, split_key, construct_key};
 
 /// Represents the Postgres backend store.
 pub struct Store {
@@ -91,22 +89,14 @@ impl database::Store for Store {
     }
 
     /// Send history to client.
-    fn send_history(&mut self, key: &str, from: f64, to: f64, send_q: &mpsc::Sender<String>) {
+    fn query_history(&mut self, key: &str, from: f64, to: f64, send: &mut FnMut(f64, &str)) {
         let query = "SELECT values.key, values.value, values.time FROM values \
                      WHERE key = $1 AND time >= $2 AND time <= $3 ORDER BY time;";
         if let Ok(result) = self.connection.query(query, &[&key, &from, &to]) {
-            let mut res = Vec::with_capacity(BATCHSIZE);
             for row in &result {
-                let key: String = row.get(0);
                 let val: String = row.get(1);
-                res.push(TellTS { key: key.into(), val: val.into(), time: row.get(2),
-                                  ttl: 0., no_store: false }.to_string());
-                if res.len() >= BATCHSIZE {
-                    let _ = send_q.send(res.join(""));
-                    res.clear();
-                }
+                send(row.get(2), &val);
             }
-            let _ = send_q.send(res.join(""));
         }
     }
 }

@@ -31,7 +31,7 @@ use entry::{Entry, BATCHSIZE, split_key, construct_key};
 use handler::UpdaterMsg;
 use util::localtime;
 use server::ClientAddr;
-use message::CacheMsg::LockRes;
+use message::CacheMsg::{TellTS, LockRes};
 
 pub type EntryMap = HashMap<String, HashMap<String, Entry>>;
 
@@ -65,9 +65,8 @@ pub trait Store : Send {
     fn tell_hook(&mut self, entry: &Entry, entry_map: &mut EntryMap) -> io::Result<()>;
     /// Save a new entry to the store.
     fn save(&mut self, catname: &str, subkey: &str, entry: &Entry) -> io::Result<()>;
-    // XXX: this should really return an iterator over Entries
-    /// Send history of entries for a specified key to given client.
-    fn send_history(&mut self, key: &str, from: f64, to: f64, sender: &mpsc::Sender<String>);
+    /// Query history of entries for a specified key to given client.
+    fn query_history(&mut self, key: &str, from: f64, to: f64, send: &mut FnMut(f64, &str));
 }
 
 impl DB {
@@ -213,7 +212,16 @@ impl DB {
         if delta < 0. {
             return;
         }
-        let _ = self.store.send_history(key, from, from + delta, send_q);
+        let mut res = Vec::with_capacity(BATCHSIZE);
+        let _ = self.store.query_history(key, from, from + delta, &mut |time, val| {
+            res.push(TellTS { key: key.into(), val: val.into(), time: time,
+                              ttl: 0., no_store: false }.to_string());
+            if res.len() >= BATCHSIZE {
+                let _ = send_q.send(res.join(""));
+                res.clear();
+            }
+        });
+        let _ = send_q.send(res.join(""));
     }
 
     /// Lock or unlock a key for multi-process synchronization.
