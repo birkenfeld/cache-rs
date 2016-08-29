@@ -24,7 +24,7 @@ Options are:
 
         -v                 Debug logging output?
         --bind ADDR        Bind address (host:port) [default: 127.0.0.1:14869]
-        --store STOREPATH  Store path [default: data]
+        --store STOREPATH  Store path or URI [default: data]
         --log LOGPATH      Logging path [default: log]
         --pid PIDPATH      PID path [default: pid]
         -d                 Daemonize?

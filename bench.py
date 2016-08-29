@@ -104,8 +104,11 @@ def multi_writer_with_ttl():
 def ask_only():
     mains, subs = connect(1, 0)
 
-    t1 = time.time()
     mains[0].sendall(''.join(all_msg))
+    mains[0].sendall('ben/%s/k*\n' % rnd_key)
+    msg_set = recvall(mains[0])
+    assert msg_set == all_set
+    t1 = time.time()
     mains[0].sendall('ben/%s/k*\n' % rnd_key)
     msg_set = recvall(mains[0])
     assert msg_set == all_set
