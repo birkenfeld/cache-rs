@@ -38,15 +38,17 @@ pub struct Store {
 
 impl Store {
     pub fn new(url: &str) -> Result<Store, postgres::error::ConnectError> {
-        // XXX: create table if not present? check schema?
         Ok(Store { connection: try!(Connection::connect(url, SslMode::None)) })
     }
 }
 
 impl database::Store for Store {
-    /// Clear all DB values.
+    /// Clear all DB values and recreate the schema.
     fn clear(&mut self) -> io::Result<()> {
-        try!(self.connection.execute("DELETE FROM values;", &[]));
+        try!(self.connection.batch_execute(
+            "DROP TABLE IF EXISTS values; \
+             CREATE UNLOGGED TABLE values \
+             ( key TEXT, value TEXT, time DOUBLE PRECISION, expires BOOL );"));
         Ok(())
     }
 
