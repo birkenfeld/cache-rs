@@ -145,7 +145,7 @@ impl Handler {
             // key inquiries
             Ask { ref key, with_ts } =>
                 db.ask(key, with_ts, &self.send_q),
-            AskWC { ref key_wc, with_ts } =>
+            AskWild { ref key_wc, with_ts } =>
                 db.ask_wc(key_wc, with_ts, &self.send_q),
             AskHist { ref key, from, delta } =>
                 db.ask_hist(key, from, delta, &self.send_q),

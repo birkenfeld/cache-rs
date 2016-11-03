@@ -25,7 +25,7 @@
 use std::io;
 use std::collections::HashMap;
 
-use postgres::{self, Connection, SslMode};
+use postgres::{self, Connection, TlsMode};
 
 use database::{self, EntryMap};
 use entry::{Entry, split_key, construct_key};
@@ -38,7 +38,7 @@ pub struct Store {
 
 impl Store {
     pub fn new(url: &str) -> Result<Store, postgres::error::ConnectError> {
-        Ok(Store { connection: try!(Connection::connect(url, SslMode::None)) })
+        Ok(Store { connection: try!(Connection::connect(url, TlsMode::None)) })
     }
 }
 

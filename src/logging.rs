@@ -36,7 +36,7 @@ use log4rs;
 use log4rs::append::Append;
 use log4rs::encode::Encode;
 use log4rs::encode::pattern::PatternEncoder;
-use log4rs::encode::writer::SimpleWriter;
+use log4rs::encode::writer::simple::SimpleWriter;
 use log4rs::config::{Config, Root, Appender};
 use ansi_term::Colour::{Red, White, Purple};
 
@@ -138,15 +138,15 @@ pub fn init<P: AsRef<Path>>(log_path: P, srvname: &str, debug: bool,
     try!(ensure_dir(log_path.as_ref()));
 
     let file_appender = RollingFileAppender::new(log_path.as_ref(), srvname);
-    let mut root_cfg = Root::builder().appender("file".into());
+    let mut root_cfg = Root::builder().appender("file");
     if use_stdout {
-        root_cfg = root_cfg.appender("con".into());
+        root_cfg = root_cfg.appender("con");
     }
     let mut config = Config::builder()
-        .appender(Appender::builder().build("file".into(), Box::new(file_appender)));
+        .appender(Appender::builder().build("file", Box::new(file_appender)));
     if use_stdout {
         let con_appender = ConsoleAppender::new();
-        config = config.appender(Appender::builder().build("con".into(), Box::new(con_appender)));
+        config = config.appender(Appender::builder().build("con", Box::new(con_appender)));
     }
     let config = config.build(root_cfg.build(if debug { LogLevelFilter::Debug }
                                              else { LogLevelFilter::Info }))

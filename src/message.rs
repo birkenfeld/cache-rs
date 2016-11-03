@@ -68,7 +68,7 @@ pub enum CacheMsg<'a> {
     /// query for a single key
     Ask       { key: Cstr<'a>, with_ts: bool },
     /// query for multiple keys with a wildcard
-    AskWC     { key_wc: Cstr<'a>, with_ts: bool },
+    AskWild   { key_wc: Cstr<'a>, with_ts: bool },
     /// query for history of a single key
     AskHist   { key: Cstr<'a>, from: f64, delta: f64 },
     /// subscription to a key substring
@@ -131,7 +131,7 @@ impl<'a> CacheMsg<'a> {
                     } else {
                         Some(Ask { key: key.into(), with_ts: has_tsop })
                     },
-                "*" =>  Some(AskWC { key_wc: key.into(), with_ts: has_tsop }),
+                "*" =>  Some(AskWild { key_wc: key.into(), with_ts: has_tsop }),
                 ":" =>  Some(Subscribe { key_sub: key.into(), with_ts: has_tsop }),
                 "|" =>  Some(Unsub { key_sub: key.into(), with_ts: has_tsop }),
                 "$" => {
@@ -180,7 +180,7 @@ impl<'a> ToString for CacheMsg<'a> {
                 } else {
                     format!("{}?\n", key)
                 },
-            AskWC { ref key_wc, with_ts } =>
+            AskWild { ref key_wc, with_ts } =>
                 if with_ts {
                     format!("@{}*\n", key_wc)
                 } else {
