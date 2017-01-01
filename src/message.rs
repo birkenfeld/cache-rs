@@ -97,17 +97,17 @@ impl<'a> CacheMsg<'a> {
             let mut dt = 0.;
             let has_tsop = captures.name("tsop").is_some();
             if has_tsop {
-                t1 = captures.name("time").and_then(|v| v.parse().ok()).unwrap_or_else(localtime);
-                dt = captures.name("ttl").and_then(|v| v.parse().ok()).unwrap_or(0.);
-                if captures.name("ttlop").unwrap_or("") == "-" {
+                t1 = captures.name("time").and_then(|m| m.as_str().parse().ok()).unwrap_or_else(localtime);
+                dt = captures.name("ttl").and_then(|m| m.as_str().parse().ok()).unwrap_or(0.);
+                if captures.name("ttlop").map_or("", |m| m.as_str()) == "-" {
                     dt -= t1;
                 }
             } else {
                 t1 = localtime();
             }
-            let key = captures.name("key").expect("no key in match?!");
-            let val = captures.name("value").unwrap_or("");
-            match captures.name("op").expect("no op in match?!") {
+            let key = captures.name("key").expect("no key in match?!").as_str();
+            let val = captures.name("value").map_or("", |m| m.as_str());
+            match captures.name("op").expect("no op in match?!").as_str() {
                 "=" => {
                     // handle the "no store" flag, a "#" after the key name
                     let no_store = key.ends_with('#');
