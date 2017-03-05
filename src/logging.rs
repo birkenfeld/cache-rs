@@ -66,7 +66,7 @@ impl Default for ConsoleAppender {
 }
 
 impl Append for ConsoleAppender {
-    fn append(&self, record: &LogRecord) -> Result<(), Box<Error>> {
+    fn append(&self, record: &LogRecord) -> Result<(), Box<Error + Send + Sync>> {
         let mut stdout = self.stdout.lock();
         let time_str = strftime("[%H:%M:%S]", &now()).unwrap();
         let msg = match record.level() {
@@ -120,7 +120,7 @@ impl RollingFileAppender {
 }
 
 impl Append for RollingFileAppender {
-    fn append(&self, record: &LogRecord) -> Result<(), Box<Error>> {
+    fn append(&self, record: &LogRecord) -> Result<(), Box<Error + Send + Sync>> {
         let (ref mut file_opt, ref mut roll_at) = *self.file.lock().unwrap();
         if file_opt.is_none() || get_time() >= *roll_at {
             try!(self.rollover(file_opt, roll_at));
