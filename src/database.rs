@@ -213,7 +213,7 @@ impl DB {
             return;
         }
         let mut res = Vec::with_capacity(BATCHSIZE);
-        let _ = self.store.query_history(key, from, from + delta, &mut |time, val| {
+        self.store.query_history(key, from, from + delta, &mut |time, val| {
             res.push(TellTS { key: key.into(), val: val.into(), time: time,
                               ttl: 0., no_store: false }.to_string());
             if res.len() >= BATCHSIZE {

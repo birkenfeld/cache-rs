@@ -251,7 +251,7 @@ impl Store {
         let file = subpath.join(safe_catname);
         let mut fp = try!(open_file(&file, "wa"));
         if try!(fp.seek(SeekFrom::Current(0))) == 0 {
-            try!(fp.write(b"# NICOS cache store file v2\n"));
+            try!(fp.write_all(b"# NICOS cache store file v2\n"));
         }
         try!(ensure_dir(linkfile.parent().unwrap()));
         if !linkfile.is_file() {

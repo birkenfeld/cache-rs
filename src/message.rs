@@ -31,7 +31,6 @@ use util::localtime;
 
 
 lazy_static! {
-    // we use Regex::new since it's now faster than static regex!
     static ref MSG_RE: Regex = Regex::new(r#"(?x)
     ^ (?:
       \s* (?P<time>\d+\.?\d*)?                 # timestamp
