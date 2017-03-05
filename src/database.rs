@@ -168,8 +168,8 @@ impl DB {
             if need_update && !no_store {
                 try!(self.store.save(catname, subkey, &entry));
             }
-            // notify about update
-            if need_update {
+            // notify about update (nostore keys are always propagated)
+            if need_update || no_store {
                 let fullkey = construct_key(catname, subkey);
                 self.upd_q.send(
                     UpdaterMsg::Update(fullkey, entry.clone(), Some(from)))
