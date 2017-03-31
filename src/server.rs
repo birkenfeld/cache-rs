@@ -50,10 +50,10 @@ pub enum StorePath {
 }
 
 impl StorePath {
-    pub fn parse(path: String) -> Result<StorePath, &'static str> {
+    pub fn parse(path: &str) -> Result<StorePath, &'static str> {
         if path.contains("://") {
             if path.starts_with("postgresql://") {
-                Ok(StorePath::Uri(path))
+                Ok(StorePath::Uri(path.to_string()))
             } else {
                 Err("the given URI scheme is not supported")
             }

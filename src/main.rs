@@ -27,13 +27,13 @@ extern crate log;
 extern crate log4rs;
 extern crate regex;
 extern crate time;
-extern crate docopt;
+#[macro_use]
+extern crate clap;
 extern crate ansi_term;
 #[macro_use]
 extern crate lazy_static;
 extern crate parking_lot;
 extern crate daemonize;
-extern crate rustc_serialize;
 extern crate chan_signal;
 extern crate postgres;
 
@@ -48,58 +48,42 @@ mod logging;
 mod util;
 
 
-const USAGE: &str = "
-Usage: cache-rs [options]
-       cache-rs --help
-
-A Rust implementation of the NICOS cache.
-
-Options:
-
-    -v                 Debug logging output?
-    --bind ADDR        Bind address (host:port) [default: 127.0.0.1:14869]
-    --store STOREPATH  Store path or URI [default: data]
-    --log LOGPATH      Logging path [default: log]
-    --pid PIDPATH      PID path [default: pid]
-    -d                 Daemonize?
-    --user USER        User name for daemon
-    --group GROUP      Group name for daemon
-    --clear            Clear the database on startup?
-";
-
-
-#[derive(Debug, RustcDecodable)]
-struct Args {
-    flag_v: bool,
-    flag_bind: String,
-    flag_store: String,
-    flag_log: String,
-    flag_pid: String,
-    flag_d: bool,
-    flag_user: Option<String>,
-    flag_group: Option<String>,
-    flag_clear: bool,
-}
-
 fn main() {
-    let args: Args = docopt::Docopt::new(USAGE).unwrap().decode().unwrap_or_else(|e| e.exit());
+    let args = clap_app!(("cache-rs") =>
+        (version: crate_version!())
+        (author: "")
+        (about: "A Rust implementation of the NICOS cache.")
+        (@setting DeriveDisplayOrder)
+        (@setting UnifiedHelpMessage)
+        (@arg verbose: -v "Debug logging output?")
+        (@arg bind: --bind [ADDR] default_value("127.0.0.1:14869") "Bind address (host:port)")
+        (@arg store: --store [STOREPATH] default_value("data") "Store path or URI")
+        (@arg log: --log [LOGPATH] default_value("log") "Logging path")
+        (@arg pid: --pid [PIDPATH] default_value("pid") "PID path")
+        (@arg daemon: -d "Daemonize?")
+        (@arg user: --user [USER] "User name for daemon")
+        (@arg group: --group [GROUP] "Group name for daemon")
+        (@arg clear: --clear "Clear the database on startup?")
+    ).get_matches();
 
-    let log_path = util::abspath(&args.flag_log);
-    let pid_path = util::abspath(&args.flag_pid);
-    if let Err(err) = logging::init(log_path, "cache-rs", args.flag_v, !args.flag_d) {
+    let log_path = util::abspath(args.value_of("log").expect(""));
+    let pid_path = util::abspath(args.value_of("pid").expect(""));
+    if let Err(err) = logging::init(log_path, "cache-rs", args.is_present("verbose"),
+                                    !args.is_present("daemon")) {
         println!("could not initialize logging: {}", err);
     }
-    let store_path = server::StorePath::parse(args.flag_store).unwrap_or_else(|err| {
+    let store_path = server::StorePath::parse(args.value_of("store")
+                                              .expect("")).unwrap_or_else(|err| {
         error!("invalid store path: {}", err);
         std::process::exit(1);
     });
-    if args.flag_d {
+    if args.is_present("daemon") {
         let mut daemon = daemonize::Daemonize::new();
-        if let Some(user) = args.flag_user {
-            daemon = daemon.user(user.as_str());
+        if let Some(user) = args.value_of("user") {
+            daemon = daemon.user(user);
         }
-        if let Some(group) = args.flag_group {
-            daemon = daemon.group(group.as_str());
+        if let Some(group) = args.value_of("group") {
+            daemon = daemon.group(group);
         }
         if let Err(err) = daemon.start() {
             error!("could not daemonize process: {}", err);
@@ -110,17 +94,19 @@ fn main() {
     }
 
     // handle SIGINT and SIGTERM
-    let signal_chan = chan_signal::notify(&[chan_signal::Signal::INT, chan_signal::Signal::TERM]);
+    let signal_chan = chan_signal::notify(&[chan_signal::Signal::INT,
+                                            chan_signal::Signal::TERM]);
 
-    let server = server::Server::new(store_path, args.flag_clear)
+    let server = server::Server::new(store_path, args.is_present("clear"))
         .unwrap_or_else(|_| std::process::exit(1));
-    info!("starting server on {}...", args.flag_bind);
-    if let Err(err) = server.start(&args.flag_bind) {
+    let bind_addr = args.value_of("bind").expect("");
+    info!("starting server on {}...", bind_addr);
+    if let Err(err) = server.start(bind_addr) {
         error!("could not initialize server: {}", err);
     }
 
     // wait for a signal to finish
     signal_chan.recv().unwrap();
     info!("quitting...");
-    util::remove_pidfile(&args.flag_pid);
+    util::remove_pidfile(args.value_of("pid").expect(""));
 }
