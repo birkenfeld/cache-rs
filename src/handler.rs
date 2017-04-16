@@ -68,12 +68,12 @@ impl Updater {
 
     /// Add a new subscription for this client.
     pub fn add_subscription(&mut self, key: String, with_ts: bool) {
-        self.sub_list.push((key.into(), with_ts));
+        self.sub_list.push((key, with_ts));
     }
 
     /// Remove a subscription for this client.
     pub fn remove_subscription(&mut self, key: String, with_ts: bool) {
-        let compare_item = (key.into(), with_ts);
+        let compare_item = (key, with_ts);
         self.sub_list.retain(|item| item != &compare_item);
     }
 

@@ -68,7 +68,7 @@ impl StorePath {
 /// the IP or Unix domain.
 pub trait Client : Send {
     fn read(&mut self, &mut [u8]) -> io::Result<usize>;
-    fn write(&mut self, &[u8]) -> io::Result<usize>;
+    fn write(&mut self, &[u8]) -> io::Result<()>;
     fn try_clone(&self) -> io::Result<Box<Client>>;
     fn close(&mut self);
     fn get_addr(&self) -> ClientAddr;
@@ -81,8 +81,8 @@ impl Client for TcpClient {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.0.read(buf)
     }
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0.write(buf)
+    fn write(&mut self, buf: &[u8]) -> io::Result<()> {
+        self.0.write_all(buf)
     }
     fn try_clone(&self) -> io::Result<Box<Client>> {
         self.0.try_clone().map(|s| (Box::new(TcpClient(s, self.1)) as Box<Client>))
@@ -105,14 +105,14 @@ impl Client for UdpClient {
         }
         Ok(n)
     }
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<()> {
         let n = buf.len();
         let mut from = 0;
         while from < buf.len() {
             try!(self.0.send_to(&buf[from..min(n, from+1496)], self.1));
             from += 1496;
         }
-        Ok(n)
+        Ok(())
     }
     fn try_clone(&self) -> io::Result<Box<Client>> {
         self.0.try_clone().map(|s| (Box::new(UdpClient(s, self.1, None)) as Box<Client>))
