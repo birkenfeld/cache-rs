@@ -23,7 +23,6 @@
 //! This module contains the server instance itself.
 
 use std::cmp::min;
-use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpStream, TcpListener, UdpSocket, Shutdown};
 use std::path::PathBuf;
@@ -31,6 +30,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+use odds::vec::VecExt;
 
 use handler::{Updater, Handler, UpdaterMsg};
 use database::{ThreadsafeDB, DB, Store};
@@ -200,40 +200,32 @@ impl Server {
     /// connected clients.
     fn updater(chan: mpsc::Receiver<UpdaterMsg>) {
         info!("updater started");
-        let mut map: HashMap<ClientAddr, Updater> = HashMap::new();
-        // whenever the update to the client fails, we drop it from the
-        // mapping of connected clients
-        let mut to_drop = Vec::new();
+        let mut updaters: Vec<Updater> = Vec::with_capacity(8);
         for item in chan.iter() {
             match item {
-                UpdaterMsg::NewUpdater(addr, updater) => {
-                    map.insert(addr, updater);
-                },
-                UpdaterMsg::Update(ref key, ref entry, ref source) => {
-                    for (addr, updater) in map.iter_mut() {
-                        match *source {
+                UpdaterMsg::Update(ref key, ref entry, source) => {
+                    // whenever the update to the client fails, we drop it from the
+                    // mapping of connected clients
+                    updaters.retain_mut(|upd| {
+                        match source {
                             // if the update came from a certain client, do not send it
                             // back to this client
-                            Some(ref a) if a == addr => { },
-                            _ => {
-                                if !updater.update(key, entry) {
-                                    to_drop.push(*addr);
-                                }
-                            }
+                            Some(a) if a == upd.addr => true,
+                            _ => upd.update(key, entry),
                         }
-                    }
-                    for addr in to_drop.drain(..) {
-                        map.remove(&addr);
+                    });
+                },
+                UpdaterMsg::NewUpdater(updater) => {
+                    updaters.push(updater);
+                },
+                UpdaterMsg::Subscription(addr, key, with_ts) => {
+                    if let Some(upd) = updaters.iter_mut().find(|u| u.addr == addr) {
+                        upd.add_subscription(key, with_ts);
                     }
                 },
-                UpdaterMsg::Subscription(ref addr, ref key, with_ts) => {
-                    if let Some(u) = map.get_mut(addr) {
-                        u.add_subscription(key, with_ts);
-                    }
-                },
-                UpdaterMsg::CancelSubscription(ref addr, ref key, with_ts) => {
-                    if let Some(u) = map.get_mut(addr) {
-                        u.remove_subscription(key, with_ts);
+                UpdaterMsg::CancelSubscription(addr, key, with_ts) => {
+                    if let Some(upd) = updaters.iter_mut().find(|u| u.addr == addr) {
+                        upd.remove_subscription(key, with_ts);
                     }
                 },
             }
@@ -267,8 +259,8 @@ impl Server {
             info!("[{}] new client connected", addr);
             // create the updater object and insert it into the mapping
             let upd_client = client.try_clone().expect("could not clone socket");
-            let updater = Updater::new(upd_client, addr.to_string());
-            let _ = self.upd_q.send(UpdaterMsg::NewUpdater(addr, updater));
+            let updater = Updater::new(upd_client, addr);
+            let _ = self.upd_q.send(UpdaterMsg::NewUpdater(updater));
 
             // create the handler and start its main thread
             let notifier = self.upd_q.clone();

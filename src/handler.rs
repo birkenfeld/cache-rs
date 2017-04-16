@@ -38,14 +38,14 @@ use server::{ClientAddr, Client, RECVBUF_LEN};
 /// This is a separate object since it is shared between the update thread and
 /// the handler threads.
 pub struct Updater {
-    name:     String,
+    pub addr: ClientAddr,
     client:   Box<Client>,
     sub_list: Vec<(String, bool)>,
 }
 
 /// These objects are sent to the updater thread from the DB and handlers.
 pub enum UpdaterMsg {
-    NewUpdater(ClientAddr, Updater),
+    NewUpdater(Updater),
     Update(String, Entry, Option<ClientAddr>),
     Subscription(ClientAddr, String, bool),
     CancelSubscription(ClientAddr, String, bool),
@@ -62,17 +62,17 @@ pub struct Handler {
 }
 
 impl Updater {
-    pub fn new(client: Box<Client>, name: String) -> Updater {
-        Updater { name: name, client: client, sub_list: vec![] }
+    pub fn new(client: Box<Client>, addr: ClientAddr) -> Updater {
+        Updater { addr, client, sub_list: vec![] }
     }
 
     /// Add a new subscription for this client.
-    pub fn add_subscription(&mut self, key: &str, with_ts: bool) {
+    pub fn add_subscription(&mut self, key: String, with_ts: bool) {
         self.sub_list.push((key.into(), with_ts));
     }
 
     /// Remove a subscription for this client.
-    pub fn remove_subscription(&mut self, key: &str, with_ts: bool) {
+    pub fn remove_subscription(&mut self, key: String, with_ts: bool) {
         let compare_item = (key.into(), with_ts);
         self.sub_list.retain(|item| item != &compare_item);
     }
@@ -84,11 +84,11 @@ impl Updater {
                 match self.client.write(entry.to_msg(key, with_ts).to_string().as_bytes()) {
                     Ok(_)    => {
                         debug!("[{}] client -> update: {:?}={:?} | {:?}",
-                               self.name, key, entry, self.sub_list);
+                               self.addr, key, entry, self.sub_list);
                         return true;
                     },
                     Err(err) => {
-                        info!("[{}] dropping client: {}", self.name, err);
+                        info!("[{}] dropping client: {}", self.addr, err);
                         return false;
                     }
                 }

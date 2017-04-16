@@ -7,6 +7,7 @@ authors = ["Georg Brandl <georg@python.org>"]
 regex = "*"
 log = "*"
 log4rs = "*"
+odds = "*"
 time = "*"
 docopt = "*"
 ansi_term = "*"
