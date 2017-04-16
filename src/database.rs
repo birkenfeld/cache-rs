@@ -25,6 +25,7 @@
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry as HEntry;
 use std::io;
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc;
 
 use entry::{Entry, BATCHSIZE, split_key, construct_key};
@@ -55,6 +56,8 @@ pub struct DB {
     /// Queue to send updates back to the updater thread.
     upd_q:        mpsc::Sender<UpdaterMsg>,
 }
+
+pub type ThreadsafeDB = Arc<Mutex<DB>>;
 
 pub trait Store : Send {
     /// Clear all stored data.  Used for --clear invocation.

@@ -26,10 +26,10 @@ use std::sync::mpsc;
 use std::thread;
 
 use entry::Entry;
-use database::DB;
+use database::ThreadsafeDB;
 use message::CacheMsg;
 use message::CacheMsg::*;
-use util::{Threadsafe, localtime, lock_mutex};
+use util::{localtime, lock_mutex};
 use server::{ClientAddr, Client, RECVBUF_LEN};
 
 
@@ -45,6 +45,7 @@ pub struct Updater {
 
 /// These objects are sent to the updater thread from the DB and handlers.
 pub enum UpdaterMsg {
+    NewUpdater(ClientAddr, Updater),
     Update(String, Entry, Option<ClientAddr>),
     Subscription(ClientAddr, String, bool),
     CancelSubscription(ClientAddr, String, bool),
@@ -55,7 +56,7 @@ pub enum UpdaterMsg {
 pub struct Handler {
     name:   String,
     client: Box<Client>,
-    db:     Threadsafe<DB>,
+    db:     ThreadsafeDB,
     upd_q:  mpsc::Sender<UpdaterMsg>,
     send_q: mpsc::Sender<String>,
 }
@@ -99,7 +100,7 @@ impl Updater {
 
 impl Handler {
     pub fn new(client: Box<Client>, upd_q: mpsc::Sender<UpdaterMsg>,
-               db: Threadsafe<DB>) -> Handler {
+               db: ThreadsafeDB) -> Handler {
         // spawn a thread that handles sending back replies to the socket
         let (w_msgs, r_msgs) = mpsc::channel::<String>();
         let send_client = client.try_clone().expect("could not clone socket");

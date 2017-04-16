@@ -27,15 +27,16 @@ use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpStream, TcpListener, UdpSocket, Shutdown};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
 use handler::{Updater, Handler, UpdaterMsg};
-use database::{DB, Store};
+use database::{ThreadsafeDB, DB, Store};
 use store_flat::Store as FlatStore;
 use store_pgsql::Store as PgSqlStore;
-use util::{Threadsafe, threadsafe, lock_mutex, abspath};
+use util::{lock_mutex, abspath};
 
 pub const RECVBUF_LEN: usize = 4096;
 
@@ -135,9 +136,8 @@ impl Client for UdpClient {
 /// - handlers: each listener thread can spawn handler threads when a connection
 ///   comes in; each thread runs a Handler's main function
 pub struct Server {
-    db:       Threadsafe<DB>,
-    upd_map:  Threadsafe<HashMap<ClientAddr, Updater>>,
-    upd_q:    mpsc::Sender<UpdaterMsg>,
+    db:    ThreadsafeDB,
+    upd_q: mpsc::Sender<UpdaterMsg>,
 }
 
 impl Server {
@@ -171,25 +171,21 @@ impl Server {
                 warn!("could not read existing database: {}", e);
             }
         }
-        let db = threadsafe(db);
+        let db = Arc::new(Mutex::new(db));
 
         // start a thread that cleans the DB periodically of expired entries
         let db_clone = db.clone();
         thread::spawn(move || Server::cleaner(db_clone));
 
-        // create the updaters map
-        let upd_map = threadsafe(HashMap::new());
-
         // start a thread that sends out updates to connected clients
-        let upd_map_clone = upd_map.clone();
-        thread::spawn(move || Server::updater(r_updates, upd_map_clone));
+        thread::spawn(move || Server::updater(r_updates));
 
-        Ok(Server { db: db, upd_q: w_updates, upd_map: upd_map })
+        Ok(Server { db: db, upd_q: w_updates })
     }
 
     /// Periodically call the database's "clean" function, which searches for
     /// expired keys and updates clients about the expiration.
-    fn cleaner(db: Threadsafe<DB>) {
+    fn cleaner(db: ThreadsafeDB) {
         info!("cleaner started");
         loop {
             thread::sleep(Duration::from_millis(250));
@@ -202,15 +198,17 @@ impl Server {
 
     /// Receive key updates from the database, and distribute them to all
     /// connected clients.
-    fn updater(chan: mpsc::Receiver<UpdaterMsg>,
-               upd_map: Threadsafe<HashMap<ClientAddr, Updater>>) {
+    fn updater(chan: mpsc::Receiver<UpdaterMsg>) {
         info!("updater started");
+        let mut map: HashMap<ClientAddr, Updater> = HashMap::new();
         // whenever the update to the client fails, we drop it from the
         // mapping of connected clients
         let mut to_drop = Vec::new();
         for item in chan.iter() {
-            let mut map = lock_mutex(&upd_map);
             match item {
+                UpdaterMsg::NewUpdater(addr, updater) => {
+                    map.insert(addr, updater);
+                },
                 UpdaterMsg::Update(ref key, ref entry, ref source) => {
                     for (addr, updater) in map.iter_mut() {
                         match *source {
@@ -243,7 +241,7 @@ impl Server {
     }
 
     /// Listen for data on the UDP socket and spawn handlers for it.
-    fn udp_listener(sock: UdpSocket, db: Threadsafe<DB>) {
+    fn udp_listener(sock: UdpSocket, db: ThreadsafeDB) {
         info!("udp listener started");
         let mut recvbuf = [0u8; RECVBUF_LEN];
         loop {
@@ -268,10 +266,9 @@ impl Server {
             let client = TcpClient(stream, addr);
             info!("[{}] new client connected", addr);
             // create the updater object and insert it into the mapping
-            let mut upd_map = lock_mutex(&self.upd_map);
             let upd_client = client.try_clone().expect("could not clone socket");
             let updater = Updater::new(upd_client, addr.to_string());
-            upd_map.insert(addr, updater);
+            let _ = self.upd_q.send(UpdaterMsg::NewUpdater(addr, updater));
 
             // create the handler and start its main thread
             let notifier = self.upd_q.clone();

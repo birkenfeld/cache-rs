@@ -25,7 +25,7 @@
 use std::io::{self, Write};
 use std::fs::{DirBuilder, OpenOptions, File, read_link, remove_file};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard};
 
 use time;
 
@@ -84,14 +84,6 @@ pub fn all_days(from: f64, to: f64) -> Vec<String> {
         tm = tm + time::Duration::days(1);
     }
     res
-}
-
-
-/// Convenient alias for Arc<Mutex<T>>.
-pub type Threadsafe<T> = Arc<Mutex<T>>;
-
-pub fn threadsafe<T>(obj: T) -> Threadsafe<T> {
-    Arc::new(Mutex::new(obj))
 }
 
 
