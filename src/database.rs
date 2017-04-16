@@ -25,8 +25,8 @@
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry as HEntry;
 use std::io;
-use std::sync::{Arc, Mutex};
-use std::sync::mpsc;
+use std::sync::{Arc, mpsc};
+use parking_lot::Mutex;
 
 use entry::{Entry, BATCHSIZE, split_key, construct_key};
 use handler::UpdaterMsg;

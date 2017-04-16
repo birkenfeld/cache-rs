@@ -28,7 +28,7 @@ use std::fs::{File, remove_file};
 use std::io::{self, Stdout, Write, BufWriter};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use parking_lot::Mutex;
 
 use time::{Timespec, Tm, Duration, get_time, now, strftime};
 use log::{LogLevel, LogRecord, LogLevelFilter};
@@ -121,7 +121,7 @@ impl RollingFileAppender {
 
 impl Append for RollingFileAppender {
     fn append(&self, record: &LogRecord) -> Result<(), Box<Error + Send + Sync>> {
-        let (ref mut file_opt, ref mut roll_at) = *self.file.lock().unwrap();
+        let (ref mut file_opt, ref mut roll_at) = *self.file.lock();
         if file_opt.is_none() || get_time() >= *roll_at {
             try!(self.rollover(file_opt, roll_at));
         }

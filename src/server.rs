@@ -26,17 +26,17 @@ use std::cmp::min;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpStream, TcpListener, UdpSocket, Shutdown};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::sync::mpsc;
+use std::sync::{Arc, mpsc};
 use std::thread;
 use std::time::Duration;
 use odds::vec::VecExt;
+use parking_lot::Mutex;
 
 use handler::{Updater, Handler, UpdaterMsg};
 use database::{ThreadsafeDB, DB, Store};
 use store_flat::Store as FlatStore;
 use store_pgsql::Store as PgSqlStore;
-use util::{lock_mutex, abspath};
+use util::abspath;
 
 pub const RECVBUF_LEN: usize = 4096;
 
@@ -190,7 +190,7 @@ impl Server {
         loop {
             thread::sleep(Duration::from_millis(250));
             {
-                let mut db = lock_mutex(&db);
+                let mut db = db.lock();
                 db.clean();
             }
         }

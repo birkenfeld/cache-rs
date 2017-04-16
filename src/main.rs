@@ -32,6 +32,7 @@ extern crate docopt;
 extern crate ansi_term;
 #[macro_use]
 extern crate lazy_static;
+extern crate parking_lot;
 extern crate daemonize;
 extern crate rustc_serialize;
 extern crate chan_signal;

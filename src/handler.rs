@@ -29,7 +29,7 @@ use entry::Entry;
 use database::ThreadsafeDB;
 use message::CacheMsg;
 use message::CacheMsg::*;
-use util::{localtime, lock_mutex};
+use util::localtime;
 use server::{ClientAddr, Client, RECVBUF_LEN};
 
 
@@ -130,7 +130,7 @@ impl Handler {
     fn handle_msg(&mut self, msg: &CacheMsg) {
         // get a handle to the DB (since all but one of the message types require DB
         // access, we do it here once)
-        let mut db = lock_mutex(&self.db);
+        let mut db = self.db.lock();
         match *msg {
             // key updates
             Tell { ref key, ref val, no_store } =>

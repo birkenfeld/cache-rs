@@ -25,7 +25,6 @@
 use std::io::{self, Write};
 use std::fs::{DirBuilder, OpenOptions, File, read_link, remove_file};
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
 
 use time;
 
@@ -49,13 +48,6 @@ pub fn to_timespec(t: f64) -> time::Timespec {
 pub fn to_timefloat(t: time::Tm) -> f64 {
     let ts = t.to_timespec();
     (ts.sec as f64) + ((ts.nsec as f64) / 1000000000.)
-}
-
-
-/// Lock-unwrap for a Mutex.
-#[inline]
-pub fn lock_mutex<T>(mutex: &Mutex<T>) -> MutexGuard<T> {
-    mutex.lock().expect("lock poisoned")
 }
 
 
@@ -118,7 +110,7 @@ pub fn open_file<P: AsRef<Path>>(path: P, mode: &str) -> io::Result<File> {
     opt.open(path)
 }
 
-/// Remove a PID file.
+/// Shortcut for canonicalizing a path.
 pub fn abspath<P: AsRef<Path>>(path: P) -> PathBuf {
     path.as_ref().canonicalize().unwrap()
 }
