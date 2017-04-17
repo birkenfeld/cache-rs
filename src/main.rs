@@ -27,7 +27,6 @@ extern crate log;
 extern crate log4rs;
 extern crate regex;
 extern crate time;
-extern crate odds;
 extern crate docopt;
 extern crate ansi_term;
 #[macro_use]

@@ -78,7 +78,7 @@ impl Updater {
     }
 
     /// Update this client, if the key is matched by one of the subscriptions.
-    pub fn update(&mut self, key: &str, entry: &Entry) -> bool {
+    pub fn update(&self, key: &str, entry: &Entry) -> bool {
         for &(ref substr, with_ts) in &self.sub_list {
             if key.find(substr).is_some() {
                 match self.client.write(entry.to_msg(key, with_ts).to_string().as_bytes()) {
@@ -116,7 +116,7 @@ impl Handler {
     }
 
     /// Thread that sends back replies (but not updates) to the client.
-    fn sender(name: String, mut client: Box<Client>, r_msgs: mpsc::Receiver<String>) {
+    fn sender(name: String, client: Box<Client>, r_msgs: mpsc::Receiver<String>) {
         for to_send in r_msgs.iter() {
             if let Err(err) = client.write(to_send.as_bytes()) {
                 warn!("[{}] write error in sender: {}", name, err);

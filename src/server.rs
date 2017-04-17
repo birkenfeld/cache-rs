@@ -29,7 +29,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, mpsc};
 use std::thread;
 use std::time::Duration;
-use odds::vec::VecExt;
 use parking_lot::Mutex;
 
 use handler::{Updater, Handler, UpdaterMsg};
@@ -68,7 +67,7 @@ impl StorePath {
 /// the IP or Unix domain.
 pub trait Client : Send {
     fn read(&mut self, &mut [u8]) -> io::Result<usize>;
-    fn write(&mut self, &[u8]) -> io::Result<()>;
+    fn write(&self, &[u8]) -> io::Result<()>;
     fn try_clone(&self) -> io::Result<Box<Client>>;
     fn close(&mut self);
     fn get_addr(&self) -> ClientAddr;
@@ -81,8 +80,8 @@ impl Client for TcpClient {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.0.read(buf)
     }
-    fn write(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.0.write_all(buf)
+    fn write(&self, buf: &[u8]) -> io::Result<()> {
+        (&self.0).write_all(buf)
     }
     fn try_clone(&self) -> io::Result<Box<Client>> {
         self.0.try_clone().map(|s| (Box::new(TcpClient(s, self.1)) as Box<Client>))
@@ -105,7 +104,7 @@ impl Client for UdpClient {
         }
         Ok(n)
     }
-    fn write(&mut self, buf: &[u8]) -> io::Result<()> {
+    fn write(&self, buf: &[u8]) -> io::Result<()> {
         let n = buf.len();
         let mut from = 0;
         while from < buf.len() {
@@ -206,7 +205,7 @@ impl Server {
                 UpdaterMsg::Update(ref key, ref entry, source) => {
                     // whenever the update to the client fails, we drop it from the
                     // mapping of connected clients
-                    updaters.retain_mut(|upd| {
+                    updaters.retain(|upd| {
                         match source {
                             // if the update came from a certain client, do not send it
                             // back to this client
