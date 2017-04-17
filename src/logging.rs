@@ -77,8 +77,8 @@ impl Append for ConsoleAppender {
             LogLevel::Debug => White.paint(format!("{}", record.args())),
             _ => From::from(format!("{}", record.args())),
         };
-        try!(writeln!(stdout, "{} {}", White.paint(time_str), msg));
-        try!(stdout.flush());
+        writeln!(stdout, "{} {}", White.paint(time_str), msg)?;
+        stdout.flush()?;
         Ok(())
     }
 }
@@ -110,7 +110,7 @@ impl RollingFileAppender {
         let time = strftime("%Y-%m-%d", &now()).unwrap();
         let full = format!("{}-{}.log", self.prefix, time);
         let new_fn = self.dir.join(full);
-        let fp = try!(open_file(&new_fn, "wa"));
+        let fp = open_file(&new_fn, "wa")?;
         *file_opt = Some(SimpleWriter(BufWriter::new(fp)));
         let _ = remove_file(&self.link_fn);
         let _ = symlink(&new_fn.file_name().unwrap(), &self.link_fn);
@@ -123,11 +123,11 @@ impl Append for RollingFileAppender {
     fn append(&self, record: &LogRecord) -> Result<(), Box<Error + Send + Sync>> {
         let (ref mut file_opt, ref mut roll_at) = *self.file.lock();
         if file_opt.is_none() || get_time() >= *roll_at {
-            try!(self.rollover(file_opt, roll_at));
+            self.rollover(file_opt, roll_at)?;
         }
         let fp = file_opt.as_mut().unwrap();
-        try!(self.pattern.encode(fp, record));
-        try!(fp.flush());
+        self.pattern.encode(fp, record)?;
+        fp.flush()?;
         Ok(())
     }
 }
@@ -135,7 +135,7 @@ impl Append for RollingFileAppender {
 
 pub fn init<P: AsRef<Path>>(log_path: P, srvname: &str, debug: bool,
                             use_stdout: bool) -> io::Result<()> {
-    try!(ensure_dir(log_path.as_ref()));
+    ensure_dir(log_path.as_ref())?;
 
     let file_appender = RollingFileAppender::new(log_path.as_ref(), srvname);
     let mut root_cfg = Root::builder().appender("file");

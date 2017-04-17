@@ -108,7 +108,7 @@ impl Client for UdpClient {
         let n = buf.len();
         let mut from = 0;
         while from < buf.len() {
-            try!(self.0.send_to(&buf[from..min(n, from+1496)], self.1));
+            self.0.send_to(&buf[from..min(n, from+1496)], self.1)?;
             from += 1496;
         }
         Ok(())
@@ -272,12 +272,12 @@ impl Server {
     /// socket and spawn handlers to handle them.
     pub fn start(self, addr: &str) -> io::Result<()> {
         // create the UDP socket and start its handler thread
-        let udp_sock = try!(UdpSocket::bind(addr));
+        let udp_sock = UdpSocket::bind(addr)?;
         let db_clone = self.db.clone();
         thread::spawn(move || Server::udp_listener(udp_sock, db_clone));
 
         // create the TCP socket and start its handler thread
-        let tcp_sock = try!(TcpListener::bind(addr));
+        let tcp_sock = TcpListener::bind(addr)?;
         thread::spawn(move || Server::tcp_listener(self, tcp_sock));
         Ok(())
     }

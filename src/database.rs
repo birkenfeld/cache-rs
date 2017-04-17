@@ -147,7 +147,7 @@ impl DB {
             newcats.extend(rewrite_cats.iter().map(String::as_str));
         }
         let entry = Entry::new(time, ttl, val);
-        try!(self.store.tell_hook(&entry, &mut self.entry_map));
+        self.store.tell_hook(&entry, &mut self.entry_map)?;
         for catname in newcats {
             let mut need_update = true;
             // write to in-memory map
@@ -169,7 +169,7 @@ impl DB {
             }
             // write to on-disk file
             if need_update && !no_store {
-                try!(self.store.save(catname, subkey, &entry));
+                self.store.save(catname, subkey, &entry)?;
             }
             // notify about update (nostore keys are always propagated)
             if need_update || no_store {

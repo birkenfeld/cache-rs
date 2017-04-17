@@ -74,8 +74,8 @@ impl database::Store for Store {
     /// Clear DB by removing all store files.
     fn clear(&mut self) -> io::Result<()> {
         if self.storepath.is_dir() {
-            try!(remove_dir_all(&self.storepath));
-            try!(ensure_dir(&self.storepath));
+            remove_dir_all(&self.storepath)?;
+            ensure_dir(&self.storepath)?;
             self.set_lastday();
         }
         Ok(())
@@ -83,7 +83,7 @@ impl database::Store for Store {
 
     /// Load the latest DB entries from the store.
     fn load_latest(&mut self, entry_map: &mut EntryMap) -> io::Result<()> {
-        try!(ensure_dir(&self.storepath));
+        ensure_dir(&self.storepath)?;
         let mut nentries = 0;
         let mut nfiles = 0;
         let mut need_rollover = false;
@@ -133,7 +133,7 @@ impl database::Store for Store {
     /// Roll over store files when needed.
     fn tell_hook(&mut self, entry: &Entry, entry_map: &mut EntryMap) -> io::Result<()> {
         if entry.time >= self.midnights.1 {
-            try!(self.rollover(entry_map));
+            self.rollover(entry_map)?;
         }
         Ok(())
     }
@@ -141,7 +141,7 @@ impl database::Store for Store {
     /// Save new key-value entry to the right file.
     fn save(&mut self, cat: &str, subkey: &str, entry: &Entry) -> io::Result<()> {
         if !self.files.contains_key(cat) {
-            let fp = try!(self.create_fd(cat));
+            let fp = self.create_fd(cat)?;
             self.files.insert(cat.into(), fp);
         }
         let fp = self.files.get_mut(cat).unwrap();
@@ -171,8 +171,9 @@ impl database::Store for Store {
 
 impl Store {
     /// Load keys from a single file for category "catname".
-    fn load_one_file(&mut self, catname: String, filename: PathBuf, entry_map: &mut EntryMap) -> io::Result<i32> {
-        let fp = try!(open_file(filename, "ra"));
+    fn load_one_file(&mut self, catname: String, filename: PathBuf,
+                     entry_map: &mut EntryMap) -> io::Result<i32> {
+        let fp = open_file(filename, "ra")?;
         let mut reader = BufReader::new(fp);
         let mut line = String::new();
         let mut nentries = 0;
@@ -194,9 +195,9 @@ impl Store {
                         if let Ok(v) = parts[1].parse::<f64>() {
                             map.insert(subkey, Entry::new(v, 0., parts[3]).expired());
                         }
-                    } else if map.contains_key(&subkey) {
+                    } else if let Some(entry) = map.get_mut(&subkey) {
                         // value is empty: be sure to mark any current value as expired
-                        map.get_mut(&subkey).unwrap().expired = true;
+                        entry.expired = true;
                     }
                     nentries += 1;
                 }
@@ -204,7 +205,7 @@ impl Store {
             line.clear();
         }
         let mut file = reader.into_inner();
-        try!(file.seek(SeekFrom::End(0)));
+        file.seek(SeekFrom::End(0))?;
         self.files.insert(catname.clone(), file);
         entry_map.insert(catname, map);
         Ok(nentries)
@@ -230,10 +231,10 @@ impl Store {
         for (catname, fp) in old_files {
             drop(fp);
             let submap = entry_map.get(&catname).unwrap();
-            let mut new_fp = try!(self.create_fd(&catname));
+            let mut new_fp = self.create_fd(&catname)?;
             for (subkey, entry) in submap {
                 if !entry.expired {
-                    try!(entry.to_file(subkey, &mut new_fp));
+                    entry.to_file(subkey, &mut new_fp)?;
                 }
             }
             self.files.insert(catname, new_fp);
@@ -247,15 +248,15 @@ impl Store {
         let safe_catname = catname.replace("/", "-");
         let subpath = self.storepath.join(&self.ymd_path);
         let linkfile = self.storepath.join(&safe_catname).join(&self.ymd_path);
-        try!(ensure_dir(&subpath));
+        ensure_dir(&subpath)?;
         let file = subpath.join(safe_catname);
-        let mut fp = try!(open_file(&file, "wa"));
-        if try!(fp.seek(SeekFrom::Current(0))) == 0 {
-            try!(fp.write_all(b"# NICOS cache store file v2\n"));
+        let mut fp = open_file(&file, "wa")?;
+        if fp.seek(SeekFrom::Current(0))? == 0 {
+            fp.write_all(b"# NICOS cache store file v2\n")?;
         }
-        try!(ensure_dir(linkfile.parent().unwrap()));
+        ensure_dir(linkfile.parent().unwrap())?;
         if !linkfile.is_file() {
-            try!(hard_link(file, linkfile));
+            hard_link(file, linkfile)?;
         }
         Ok(fp)
     }
@@ -269,7 +270,7 @@ impl Store {
         if !path.is_file() {
             return Ok(res)
         }
-        let fp = try!(File::open(path));
+        let fp = open_file(path, "r")?;
         let reader = BufReader::new(fp);
         for line in reader.lines() {
             if let Ok(line) = line {

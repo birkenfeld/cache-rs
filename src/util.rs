@@ -82,11 +82,12 @@ pub fn all_days(from: f64, to: f64) -> Vec<String> {
 /// Write a PID file.
 pub fn write_pidfile<P: AsRef<Path>>(pid_path: P) -> io::Result<()> {
     let pid_path = pid_path.as_ref();
-    try!(ensure_dir(pid_path));
+    ensure_dir(pid_path)?;
     let file = pid_path.join("cache-rs.pid");
-    let my_pid = try!(read_link("/proc/self"));
+    let my_pid = read_link("/proc/self")?;
     let my_pid = my_pid.as_os_str().to_str().unwrap().as_bytes();
-    try!(File::create(file)).write(my_pid).map(|_| ())
+    File::create(file)?.write(my_pid)?;
+    Ok(())
 }
 
 /// Remove a PID file.

@@ -38,18 +38,18 @@ pub struct Store {
 
 impl Store {
     pub fn new(url: &str) -> Result<Store, postgres::error::ConnectError> {
-        Ok(Store { connection: try!(Connection::connect(url, TlsMode::None)) })
+        Ok(Store { connection: Connection::connect(url, TlsMode::None)? })
     }
 }
 
 impl database::Store for Store {
     /// Clear all DB values and recreate the schema.
     fn clear(&mut self) -> io::Result<()> {
-        try!(self.connection.batch_execute(
+        self.connection.batch_execute(
             "DROP TABLE IF EXISTS values; \
              CREATE UNLOGGED TABLE values \
                ( key TEXT, value TEXT, time DOUBLE PRECISION, expires BOOL ); \
-             CREATE INDEX ON values ( key );"));
+             CREATE INDEX ON values ( key );")?;
         Ok(())
     }
 
@@ -60,7 +60,7 @@ impl database::Store for Store {
                      SELECT values.key, values.value, values.time, values.expires \
                        FROM values, max_ts \
                        WHERE max_ts.key = values.key AND max_ts.time = values.time;";
-        let result = try!(self.connection.query(query, &[]));
+        let result = self.connection.query(query, &[])?;
         let num_rows = result.len();
         for row in &result {
             let key: String = row.get(0);
@@ -87,7 +87,7 @@ impl database::Store for Store {
                        VALUES ( $1, $2, $3, $4 );";
         let key = construct_key(catname, subkey);
         let expires = entry.ttl > 0. || entry.expired;
-        try!(self.connection.execute(query, &[&key, &entry.value, &entry.time, &expires]));
+        self.connection.execute(query, &[&key, &entry.value, &entry.time, &expires])?;
         Ok(())
     }
 

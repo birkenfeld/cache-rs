@@ -22,23 +22,10 @@
 //
 //! This module contains the definition for the in-memory and on-disk database.
 
-// use std::mem;
 use std::borrow::Cow;
-// use std::collections::{HashMap, HashSet};
-// use std::collections::hash_map::Entry as HEntry;
-// use std::fs::{File, read_dir, remove_file, hard_link, remove_dir_all};
-// use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
-// use std::os::unix::fs::symlink;
-// use std::path::{Path, PathBuf};
-// use std::sync::mpsc;
 
-// use time::{now, Tm, Duration};
-
-// use handler::UpdaterMsg;
 use message::CacheMsg;
 use message::CacheMsg::{Tell, TellOld, TellTS, TellOldTS};
-// use util::{localtime, ensure_dir, to_timefloat, day_path, all_days, open_file};
-// use server::ClientAddr;
 
 /// Number of entries to send back in one batch.
 pub const BATCHSIZE: usize = 100;
