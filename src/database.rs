@@ -76,12 +76,12 @@ impl DB {
     /// Create a new empty database.
     pub fn new(store: Box<Store>, upd_q: mpsc::Sender<UpdaterMsg>) -> DB {
         DB {
-            store: store,
+            store,
+            upd_q,
             entry_map: HashMap::new(),
             locks: HashMap::new(),
             rewrites: HashMap::new(),
             inv_rewrites: HashMap::new(),
-            upd_q: upd_q,
         }
     }
 
@@ -217,7 +217,7 @@ impl DB {
         }
         let mut res = Vec::with_capacity(BATCHSIZE);
         self.store.query_history(key, from, from + delta, &mut |time, val| {
-            res.push(TellTS { key: key.into(), val: val.into(), time: time,
+            res.push(TellTS { key: key.into(), val: val.into(), time,
                               ttl: 0., no_store: false }.to_string());
             if res.len() >= BATCHSIZE {
                 let _ = send_q.send(res.join(""));

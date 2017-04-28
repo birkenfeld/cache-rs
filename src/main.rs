@@ -48,7 +48,7 @@ mod logging;
 mod util;
 
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 Usage: cache-rs [options]
        cache-rs --help
 

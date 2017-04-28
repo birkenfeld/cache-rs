@@ -64,11 +64,11 @@ pub struct Entry {
 
 impl Entry {
     pub fn new(time: f64, ttl: f64, value: &str) -> Entry {
-        Entry { time: time, ttl: ttl, expired: value == "", value: value.into() }
+        Entry { time, ttl, expired: value == "", value: value.into() }
     }
 
     pub fn new_owned(time: f64, ttl: f64, value: String) -> Entry {
-        Entry { time: time, ttl: ttl, expired: value == "", value: value }
+        Entry { time, ttl, expired: value == "", value }
     }
 
     /// Mark the Entry as expired.

@@ -61,7 +61,7 @@ impl Store {
     pub fn new(storepath: PathBuf) -> Store {
         let thisday = Tm { tm_hour: 0, tm_min: 0, tm_sec: 0, tm_nsec: 0, ..now() };
         Store {
-            storepath: storepath,
+            storepath,
             files: HashMap::new(),
             midnights: (to_timefloat(thisday),
                         to_timefloat(thisday + Duration::days(1))),

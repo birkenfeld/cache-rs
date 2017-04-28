@@ -108,10 +108,10 @@ impl Handler {
         thread::spawn(move || Handler::sender(thread_name, send_client, r_msgs));
         Handler {
             name:   client.get_addr().to_string(),
-            client: client,
-            db:     db,
             send_q: w_msgs,
-            upd_q:  upd_q,
+            client,
+            db,
+            upd_q,
         }
     }
 

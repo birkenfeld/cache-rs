@@ -101,8 +101,8 @@ impl RollingFileAppender {
         let pattern = PatternEncoder::new("{d(%H:%M:%S,%f)(local)} : {l:<5} : {m}{n}");
         let link_fn = dir.join("current");
         let prefix = prefix.replace("/", "-");
-        RollingFileAppender { dir: dir.to_path_buf(), prefix: prefix, link_fn: link_fn,
-                              file: Mutex::new((None, roll_at)), pattern: pattern }
+        RollingFileAppender { dir: dir.to_path_buf(), prefix, link_fn,
+                              file: Mutex::new((None, roll_at)), pattern }
     }
 
     fn rollover(&self, file_opt: &mut Option<Writer>, roll_at: &mut Timespec) -> io::Result<()> {

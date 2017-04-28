@@ -113,10 +113,10 @@ impl<'a> CacheMsg<'a> {
                     let real_key = if no_store { &key[0..key.len() - 1] } else { &key };
                     if has_tsop {
                         Some(TellTS { key: real_key.into(), val: val.into(),
-                                      time: t1, ttl: dt, no_store: no_store })
+                                      time: t1, ttl: dt, no_store })
                     } else {
                         Some(Tell { key: real_key.into(), val: val.into(),
-                                    no_store: no_store })
+                                    no_store })
                     }},
                 "!" =>
                     if has_tsop {

@@ -179,7 +179,7 @@ impl Server {
         // start a thread that sends out updates to connected clients
         thread::spawn(move || Server::updater(r_updates));
 
-        Ok(Server { db: db, upd_q: w_updates })
+        Ok(Server { db, upd_q: w_updates })
     }
 
     /// Periodically call the database's "clean" function, which searches for
