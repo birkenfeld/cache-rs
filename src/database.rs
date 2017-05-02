@@ -22,10 +22,11 @@
 //
 //! This module contains the definition for the in-memory and on-disk database.
 
-use std::collections::{HashMap, HashSet};
-use std::collections::hash_map::Entry as HEntry;
 use std::io;
+use std::collections::HashSet;
+use std::collections::hash_map::Entry as HEntry;
 use std::sync::{Arc, mpsc};
+use fnv::FnvHashMap as HashMap;
 use parking_lot::Mutex;
 
 use entry::{Entry, BATCHSIZE, split_key, construct_key};
@@ -78,10 +79,10 @@ impl DB {
         DB {
             store,
             upd_q,
-            entry_map: HashMap::new(),
-            locks: HashMap::new(),
-            rewrites: HashMap::new(),
-            inv_rewrites: HashMap::new(),
+            entry_map: HashMap::default(),
+            locks: HashMap::default(),
+            rewrites: HashMap::default(),
+            inv_rewrites: HashMap::default(),
         }
     }
 
@@ -152,7 +153,7 @@ impl DB {
             let mut need_update = true;
             // write to in-memory map
             {
-                let submap = self.entry_map.entry(catname.into()).or_insert_with(HashMap::new);
+                let submap = self.entry_map.entry(catname.into()).or_insert_with(HashMap::default);
                 if let Some(ref mut entry) = submap.get_mut(subkey) {
                     // if we already have the same value, only adapt time and ttl info
                     if entry.value == val && !entry.expired {

@@ -23,12 +23,11 @@
 //! Flat-file database store.
 
 use std::mem;
-use std::collections::HashMap;
 use std::fs::{File, read_dir, remove_file, hard_link, remove_dir_all};
 use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
 use std::os::unix::fs::symlink;
 use std::path::PathBuf;
-
+use fnv::FnvHashMap as HashMap;
 use time::{now, Tm, Duration};
 
 use database::{self, EntryMap};
@@ -62,7 +61,7 @@ impl Store {
         let thisday = Tm { tm_hour: 0, tm_min: 0, tm_sec: 0, tm_nsec: 0, ..now() };
         Store {
             storepath,
-            files: HashMap::new(),
+            files: HashMap::default(),
             midnights: (to_timefloat(thisday),
                         to_timefloat(thisday + Duration::days(1))),
             ymd_path: day_path(thisday),
@@ -177,7 +176,7 @@ impl Store {
         let mut reader = BufReader::new(fp);
         let mut line = String::new();
         let mut nentries = 0;
-        let mut map = HashMap::new();
+        let mut map = HashMap::default();
         while let Ok(n) = reader.read_line(&mut line) {
             if n == 0 {
                 break;
@@ -227,7 +226,7 @@ impl Store {
         self.midnights = (to_timefloat(thisday),
                           to_timefloat(thisday + Duration::days(1)));
         self.ymd_path = day_path(thisday);
-        let old_files = mem::replace(&mut self.files, HashMap::new());
+        let old_files = mem::replace(&mut self.files, HashMap::default());
         for (catname, fp) in old_files {
             drop(fp);
             let submap = entry_map.get(&catname).unwrap();

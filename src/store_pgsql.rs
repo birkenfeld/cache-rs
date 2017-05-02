@@ -23,8 +23,7 @@
 //! PostgreSQL-backed database store.
 
 use std::io;
-use std::collections::HashMap;
-
+use fnv::FnvHashMap as HashMap;
 use postgres::{self, Connection, TlsMode};
 
 use database::{self, EntryMap};
@@ -65,7 +64,7 @@ impl database::Store for Store {
         for row in &result {
             let key: String = row.get(0);
             let (cat, subkey) = split_key(&key);
-            let submap = entry_map.entry(cat.into()).or_insert_with(HashMap::new);
+            let submap = entry_map.entry(cat.into()).or_insert_with(HashMap::default);
             let mut entry = Entry::new_owned(row.get(2), 0., row.get(1));
             if row.get(3) {
                 entry = entry.expired();
