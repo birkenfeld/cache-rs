@@ -4,13 +4,12 @@ version = "0.1.0"
 authors = ["Georg Brandl <georg@python.org>"]
 
 [dependencies]
-regex = "*"
 log = "*"
-log4rs = "*"
 time = "*"
-clap = "*"
 fnv = "*"
-ansi_term = "*"
+mlzlog = "*"
+regex = "*"
+clap = "*"
 lazy_static = "*"
 parking_lot = "*"
 chan-signal = "*"

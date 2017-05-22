@@ -24,13 +24,12 @@
 
 #[macro_use]
 extern crate log;
-extern crate log4rs;
-extern crate regex;
+extern crate mlzlog;
 extern crate time;
 extern crate fnv;
 #[macro_use]
 extern crate clap;
-extern crate ansi_term;
+extern crate regex;
 #[macro_use]
 extern crate lazy_static;
 extern crate parking_lot;
@@ -45,7 +44,6 @@ mod store_pgsql;
 mod handler;
 mod message;
 mod server;
-mod logging;
 mod util;
 
 
@@ -69,8 +67,8 @@ fn main() {
 
     let log_path = util::abspath(args.value_of("log").expect(""));
     let pid_path = util::abspath(args.value_of("pid").expect(""));
-    if let Err(err) = logging::init(log_path, "cache-rs", args.is_present("verbose"),
-                                    !args.is_present("daemon")) {
+    if let Err(err) = mlzlog::init(log_path, "cache-rs", args.is_present("verbose"),
+                                   !args.is_present("daemon")) {
         println!("could not initialize logging: {}", err);
     }
     let store_path = server::StorePath::parse(args.value_of("store")
