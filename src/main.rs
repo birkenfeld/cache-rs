@@ -35,11 +35,13 @@ extern crate lazy_static;
 extern crate parking_lot;
 extern crate daemonize;
 extern crate chan_signal;
+#[cfg(feature = "postgres")]
 extern crate postgres;
 
 mod entry;
 mod database;
 mod store_flat;
+#[cfg(feature = "postgres")]
 mod store_pgsql;
 mod handler;
 mod message;
@@ -67,7 +69,8 @@ fn main() {
 
     let log_path = util::abspath(args.value_of("log").expect(""));
     let pid_path = util::abspath(args.value_of("pid").expect(""));
-    if let Err(err) = mlzlog::init(log_path, "cache-rs", args.is_present("verbose"),
+    if let Err(err) = mlzlog::init(log_path, "cache-rs", false,
+                                   args.is_present("verbose"),
                                    !args.is_present("daemon")) {
         println!("could not initialize logging: {}", err);
     }

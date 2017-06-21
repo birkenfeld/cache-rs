@@ -34,6 +34,7 @@ use parking_lot::Mutex;
 use handler::{Updater, Handler, UpdaterMsg};
 use database::{ThreadsafeDB, DB, Store};
 use store_flat::Store as FlatStore;
+#[cfg(feature = "postgres")]
 use store_pgsql::Store as PgSqlStore;
 use util::abspath;
 
@@ -148,13 +149,7 @@ impl Server {
         let store: Box<Store> = match storepath {
             StorePath::Fs(path) => Box::new(FlatStore::new(path)),
             StorePath::Uri(ref uri) if uri.starts_with("postgresql://") => {
-                match PgSqlStore::new(uri) {
-                    Ok(store) => Box::new(store),
-                    Err(err) => {
-                        error!("could not connect to Postgres: {}", err);
-                        return Err(());
-                    }
-                }
+                Self::make_postgres_store(uri)?
             }
             StorePath::Uri(uri) => panic!("store URI {} not supported", uri)
         };
@@ -180,6 +175,22 @@ impl Server {
         thread::spawn(move || Server::updater(r_updates));
 
         Ok(Server { db, upd_q: w_updates })
+    }
+
+    #[cfg(feature = "postgres")]
+    fn make_postgres_store(uri: &str) -> Result<Box<Store>, ()> {
+        match PgSqlStore::new(uri) {
+            Ok(store) => Ok(Box::new(store)),
+            Err(err) => {
+                error!("could not connect to Postgres: {}", err);
+                Err(())
+            }
+        }
+    }
+
+    #[cfg(not(feature = "postgres"))]
+    fn make_postgres_store(_: &str) -> Result<Box<Store>, ()> {
+        panic!("not compiled with postgres support")
     }
 
     /// Periodically call the database's "clean" function, which searches for

@@ -3,6 +3,9 @@ name = "cache-rs"
 version = "0.1.0"
 authors = ["Georg Brandl <georg@python.org>"]
 
+[profile.release]
+lto = true
+
 [dependencies]
 log = "*"
 time = "*"
@@ -13,5 +16,5 @@ clap = "*"
 lazy_static = "*"
 parking_lot = "*"
 chan-signal = "*"
-postgres = "*"
 daemonize = "*"
+postgres = { version = "*", optional = true }

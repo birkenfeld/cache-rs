@@ -54,6 +54,7 @@ impl Entry {
         Entry { time, ttl, expired: value == "", value: value.into() }
     }
 
+    #[allow(dead_code)]
     pub fn new_owned(time: f64, ttl: f64, value: String) -> Entry {
         Entry { time, ttl, expired: value == "", value }
     }
