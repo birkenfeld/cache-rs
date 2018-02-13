@@ -69,7 +69,7 @@ fn main() {
 
     let log_path = util::abspath(args.value_of("log").expect(""));
     let pid_path = util::abspath(args.value_of("pid").expect(""));
-    if let Err(err) = mlzlog::init(log_path, "cache-rs", false,
+    if let Err(err) = mlzlog::init(Some(log_path), "cache-rs", false,
                                    args.is_present("verbose"),
                                    !args.is_present("daemon")) {
         println!("could not initialize logging: {}", err);
