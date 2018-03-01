@@ -42,7 +42,7 @@ if ':' not in hostport:
 args = ['cache-rs',
         '--bind', hostport,
         '--store', dbconfig[1]['storepath'],
-        '--log', config.logging_path + '/cache-rs',
+        '--log', config.logging_path + '/cache_rs',
         '--pid', config.pid_path]
 if srvconfig[1].get('loglevel', 'info') == 'debug':
     args.append('-v')
