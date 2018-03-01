@@ -65,20 +65,11 @@ fn main() {
         (@arg user: --user [USER] "User name for daemon")
         (@arg group: --group [GROUP] "Group name for daemon")
         (@arg clear: --clear "Clear the database on startup?")
+        (@arg dummy: +hidden)
     ).get_matches();
 
     let log_path = util::abspath(args.value_of("log").expect(""));
     let pid_path = util::abspath(args.value_of("pid").expect(""));
-    if let Err(err) = mlzlog::init(Some(log_path), "cache-rs", false,
-                                   args.is_present("verbose"),
-                                   !args.is_present("daemon")) {
-        println!("could not initialize logging: {}", err);
-    }
-    let store_path = server::StorePath::parse(args.value_of("store")
-                                              .expect("")).unwrap_or_else(|err| {
-        error!("invalid store path: {}", err);
-        std::process::exit(1);
-    });
     if args.is_present("daemon") {
         let mut daemon = daemonize::Daemonize::new();
         if let Some(user) = args.value_of("user") {
@@ -88,10 +79,20 @@ fn main() {
             daemon = daemon.group(group);
         }
         if let Err(err) = daemon.start() {
-            error!("could not daemonize process: {}", err);
+            eprintln!("could not daemonize process: {}", err);
         }
     }
-    if let Err(err) = util::write_pidfile(pid_path) {
+    if let Err(err) = mlzlog::init(Some(log_path), "cache_rs", false,
+                                   args.is_present("verbose"),
+                                   !args.is_present("daemon")) {
+        eprintln!("could not initialize logging: {}", err);
+    }
+    let store_path = server::StorePath::parse(args.value_of("store")
+                                              .expect("")).unwrap_or_else(|err| {
+        error!("invalid store path: {}", err);
+        std::process::exit(1);
+    });
+    if let Err(err) = util::write_pidfile(&pid_path) {
         error!("could not write PID file: {}", err);
     }
 
@@ -110,5 +111,5 @@ fn main() {
     // wait for a signal to finish
     signal_chan.recv().unwrap();
     info!("quitting...");
-    util::remove_pidfile(args.value_of("pid").expect(""));
+    util::remove_pidfile(pid_path);
 }

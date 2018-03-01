@@ -83,7 +83,7 @@ pub fn all_days(from: f64, to: f64) -> Vec<String> {
 pub fn write_pidfile<P: AsRef<Path>>(pid_path: P) -> io::Result<()> {
     let pid_path = pid_path.as_ref();
     ensure_dir(pid_path)?;
-    let file = pid_path.join("cache-rs.pid");
+    let file = pid_path.join("cache_rs.pid");
     let my_pid = read_link("/proc/self")?;
     let my_pid = my_pid.as_os_str().to_str().unwrap().as_bytes();
     File::create(file)?.write(my_pid)?;
@@ -92,7 +92,7 @@ pub fn write_pidfile<P: AsRef<Path>>(pid_path: P) -> io::Result<()> {
 
 /// Remove a PID file.
 pub fn remove_pidfile<P: AsRef<Path>>(pid_path: P) {
-    let file = Path::new(pid_path.as_ref()).join("cache-rs.pid");
+    let file = Path::new(pid_path.as_ref()).join("cache_rs.pid");
     let _ = remove_file(file);
 }
 
@@ -111,7 +111,7 @@ pub fn open_file<P: AsRef<Path>>(path: P, mode: &str) -> io::Result<File> {
     opt.open(path)
 }
 
-/// Shortcut for canonicalizing a path.
+/// Shortcut for canonicalizing a path, if possible.
 pub fn abspath<P: AsRef<Path>>(path: P) -> PathBuf {
-    path.as_ref().canonicalize().unwrap()
+    path.as_ref().canonicalize().unwrap_or_else(|_| path.as_ref().into())
 }

@@ -22,7 +22,7 @@ parser.add_option('--clear', dest='clear', action='store_true',
 opts, args = parser.parse_args()
 
 
-setup_paths = [path.join(config.custom_path, p.strip(), 'setups')
+setup_paths = [path.join(config.setup_package_path, p.strip(), 'setups')
                for p in config.setup_subdirs.split(',')]
 setups = readSetups(setup_paths, session.log)
 
@@ -38,8 +38,11 @@ hostport = srvconfig[1].get('server', '127.0.0.1:14869')
 hostport = hostport.replace('localhost', '127.0.0.1')
 if ':' not in hostport:
     hostport += ':14869'
+if hostport.startswith(':'):
+    hostport = '0.0.0.0' + hostport
 
 args = ['cache-rs',
+        'nicos-cache_rs',  # dummy argument for init script compatibility
         '--bind', hostport,
         '--store', dbconfig[1]['storepath'],
         '--log', config.logging_path + '/cache_rs',
