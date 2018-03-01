@@ -172,7 +172,7 @@ impl Store {
     /// Load keys from a single file for category "catname".
     fn load_one_file(&mut self, catname: String, filename: PathBuf,
                      entry_map: &mut EntryMap) -> io::Result<i32> {
-        let fp = open_file(filename, "ra")?;
+        let fp = open_file(filename, "r")?;
         let mut reader = BufReader::new(fp);
         let mut line = String::new();
         let mut nentries = 0;
@@ -203,9 +203,6 @@ impl Store {
             }
             line.clear();
         }
-        let mut file = reader.into_inner();
-        file.seek(SeekFrom::End(0))?;
-        self.files.insert(catname.clone(), file);
         entry_map.insert(catname, map);
         Ok(nentries)
     }
@@ -236,7 +233,6 @@ impl Store {
                     entry.to_file(subkey, &mut new_fp)?;
                 }
             }
-            self.files.insert(catname, new_fp);
         }
         self.set_lastday();
         Ok(())
