@@ -37,6 +37,7 @@ extern crate lazy_static;
 extern crate parking_lot;
 extern crate daemonize;
 extern crate chan_signal;
+extern crate crossbeam_channel;
 #[cfg(feature = "postgres")]
 extern crate postgres;
 

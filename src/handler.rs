@@ -22,8 +22,8 @@
 //
 //! This module contains the handler for a single network connection.
 
-use std::sync::mpsc;
 use std::thread;
+use crossbeam_channel::{unbounded, Sender, Receiver};
 
 use entry::Entry;
 use database::ThreadsafeDB;
@@ -57,8 +57,8 @@ pub struct Handler {
     name:   String,
     client: Box<Client>,
     db:     ThreadsafeDB,
-    upd_q:  mpsc::Sender<UpdaterMsg>,
-    send_q: mpsc::Sender<String>,
+    upd_q:  Sender<UpdaterMsg>,
+    send_q: Sender<String>,
 }
 
 impl Updater {
@@ -99,10 +99,9 @@ impl Updater {
 }
 
 impl Handler {
-    pub fn new(client: Box<Client>, upd_q: mpsc::Sender<UpdaterMsg>,
-               db: ThreadsafeDB) -> Handler {
+    pub fn new(client: Box<Client>, upd_q: Sender<UpdaterMsg>, db: ThreadsafeDB) -> Handler {
         // spawn a thread that handles sending back replies to the socket
-        let (w_msgs, r_msgs) = mpsc::channel::<String>();
+        let (w_msgs, r_msgs) = unbounded();
         let send_client = client.try_clone().expect("could not clone socket");
         let thread_name = client.get_addr().to_string();
         thread::spawn(move || Handler::sender(thread_name, send_client, r_msgs));
@@ -116,7 +115,7 @@ impl Handler {
     }
 
     /// Thread that sends back replies (but not updates) to the client.
-    fn sender(name: String, client: Box<Client>, r_msgs: mpsc::Receiver<String>) {
+    fn sender(name: String, client: Box<Client>, r_msgs: Receiver<String>) {
         for to_send in r_msgs.iter() {
             if let Err(err) = client.write(to_send.as_bytes()) {
                 warn!("[{}] write error in sender: {}", name, err);

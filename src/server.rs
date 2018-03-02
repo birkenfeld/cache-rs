@@ -26,10 +26,11 @@ use std::cmp::min;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpStream, TcpListener, UdpSocket, Shutdown};
 use std::path::PathBuf;
-use std::sync::{Arc, mpsc};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use parking_lot::Mutex;
+use crossbeam_channel::{unbounded, Sender, Receiver};
 
 use handler::{Updater, Handler, UpdaterMsg};
 use database::{ThreadsafeDB, DB, Store};
@@ -137,13 +138,13 @@ impl Client for UdpClient {
 ///   comes in; each thread runs a Handler's main function
 pub struct Server {
     db:    ThreadsafeDB,
-    upd_q: mpsc::Sender<UpdaterMsg>,
+    upd_q: Sender<UpdaterMsg>,
 }
 
 impl Server {
     pub fn new(storepath: StorePath, clear_db: bool) -> Result<Server, ()> {
         // create a channel to send updated keys to the updater thread
-        let (w_updates, r_updates) = mpsc::channel();
+        let (w_updates, r_updates) = unbounded();
 
         // create the database object itself and wrap it into the mutex
         let store: Box<Store> = match storepath {
@@ -208,7 +209,7 @@ impl Server {
 
     /// Receive key updates from the database, and distribute them to all
     /// connected clients.
-    fn updater(chan: mpsc::Receiver<UpdaterMsg>) {
+    fn updater(chan: Receiver<UpdaterMsg>) {
         info!("updater started");
         let mut updaters: Vec<Updater> = Vec::with_capacity(8);
         for item in chan.iter() {
@@ -253,7 +254,7 @@ impl Server {
                 let client = UdpClient(sock_clone, addr,
                                        Some(recvbuf[..len].to_vec()));
                 let db_clone = db.clone();
-                let (w_tmp, _r_tmp) = mpsc::channel();
+                let (w_tmp, _r_tmp) = unbounded();
                 thread::spawn(move || {
                     Handler::new(Box::new(client), w_tmp, db_clone).handle();
                 });

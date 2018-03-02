@@ -25,9 +25,10 @@
 use std::io;
 use std::collections::HashSet;
 use std::collections::hash_map::Entry as HEntry;
-use std::sync::{Arc, mpsc};
+use std::sync::Arc;
 use fnv::FnvHashMap as HashMap;
 use parking_lot::Mutex;
+use crossbeam_channel::Sender;
 
 use entry::{Entry, BATCHSIZE, split_key, construct_key};
 use handler::UpdaterMsg;
@@ -55,7 +56,7 @@ pub struct DB {
     /// Inverse map of rewrite entries (from Y1 to X).
     inv_rewrites: HashMap<String, String>,
     /// Queue to send updates back to the updater thread.
-    upd_q:        mpsc::Sender<UpdaterMsg>,
+    upd_q:        Sender<UpdaterMsg>,
 }
 
 pub type ThreadsafeDB = Arc<Mutex<DB>>;
@@ -75,7 +76,7 @@ pub trait Store : Send {
 
 impl DB {
     /// Create a new empty database.
-    pub fn new(store: Box<Store>, upd_q: mpsc::Sender<UpdaterMsg>) -> DB {
+    pub fn new(store: Box<Store>, upd_q: Sender<UpdaterMsg>) -> DB {
         DB {
             store,
             upd_q,
@@ -192,7 +193,7 @@ impl DB {
     }
 
     /// Ask for a single value.
-    pub fn ask(&self, key: &str, with_ts: bool, send_q: &mpsc::Sender<String>) {
+    pub fn ask(&self, key: &str, with_ts: bool, send_q: &Sender<String>) {
         let (catname, subkey) = split_key(key);
         let msg = match self.entry_map.get(catname).and_then(|m| m.get(subkey)) {
             None => Entry::no_msg(key, with_ts),
@@ -202,7 +203,7 @@ impl DB {
     }
 
     /// Ask for many values matching a key wildcard.
-    pub fn ask_wc(&self, wc: &str, with_ts: bool, send_q: &mpsc::Sender<String>) {
+    pub fn ask_wc(&self, wc: &str, with_ts: bool, send_q: &Sender<String>) {
         let mut res = Vec::with_capacity(BATCHSIZE);
         for (catname, catmap) in &self.entry_map {
             for (subkey, entry) in catmap.iter() {
@@ -220,7 +221,7 @@ impl DB {
     }
 
     /// Ask for the history of a single key.
-    pub fn ask_hist(&mut self, key: &str, from: f64, delta: f64, send_q: &mpsc::Sender<String>) {
+    pub fn ask_hist(&mut self, key: &str, from: f64, delta: f64, send_q: &Sender<String>) {
         if delta < 0. {
             return;
         }
@@ -237,7 +238,7 @@ impl DB {
 
     /// Lock or unlock a key for multi-process synchronization.
     pub fn lock(&mut self, lock: bool, key: &str, client: &str, time: f64, ttl: f64,
-                send_q: &mpsc::Sender<String>) {
+                send_q: &Sender<String>) {
         // find existing lock entry (these are in a different namespace from normal keys)
         let entry = self.locks.entry(key.into());
         let msg = if lock {

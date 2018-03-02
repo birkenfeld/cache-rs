@@ -17,4 +17,5 @@ lazy_static = "*"
 parking_lot = "*"
 chan-signal = "*"
 daemonize = "*"
+crossbeam-channel = "*"
 postgres = { version = "*", optional = true }
