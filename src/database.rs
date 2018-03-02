@@ -30,7 +30,7 @@ use fnv::FnvHashMap as HashMap;
 use parking_lot::Mutex;
 use crossbeam_channel::Sender;
 
-use entry::{Entry, BATCHSIZE, split_key, construct_key};
+use entry::{Entry, UpdaterEntry, BATCHSIZE, split_key, construct_key};
 use handler::UpdaterMsg;
 use util::localtime;
 use server::ClientAddr;
@@ -110,7 +110,7 @@ impl DB {
                     entry.expired = true;
                     let fullkey = construct_key(catname, subkey);
                     let _ = self.upd_q.send(
-                        UpdaterMsg::Update(fullkey, entry.clone(), None));
+                        UpdaterMsg::Update(UpdaterEntry::new(fullkey, entry), None));
                     let _ = self.store.save(catname, subkey, entry);
                 }
             }
@@ -185,7 +185,7 @@ impl DB {
             if need_update || no_store {
                 let fullkey = construct_key(catname, subkey);
                 self.upd_q.send(
-                    UpdaterMsg::Update(fullkey, entry.clone(), Some(from)))
+                    UpdaterMsg::Update(UpdaterEntry::new(fullkey, &entry), Some(from)))
                           .expect("could not send to updates queue");
             }
         }

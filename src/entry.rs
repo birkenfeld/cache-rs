@@ -22,6 +22,8 @@
 //
 //! This module contains the definition for the in-memory and on-disk database.
 
+use std::fmt;
+
 use message::CacheMsg;
 use message::CacheMsg::{Tell, TellOld, TellTS, TellOldTS};
 
@@ -107,4 +109,40 @@ pub fn construct_key(catname: &str, subkey: &str) -> String {
             if catname == "nocat" { "" } else { catname },
             if catname == "nocat" { "" } else { "/" },
             subkey)
+}
+
+/// Entry associated with a key and a cache for interpolated protocol messages.
+///
+/// This is used by updaters that have to send the same update string to
+/// potentially a lot of clients.
+pub struct UpdaterEntry {
+    key: String,
+    val: Entry,
+    cache: (Option<String>, Option<String>),
+}
+
+impl UpdaterEntry {
+    pub fn new(key: String, val: &Entry) -> UpdaterEntry {
+        UpdaterEntry { key, val: val.clone(), cache: (None, None) }
+    }
+
+    /// Check if the entry matches a subscription substring.
+    pub fn matches(&self, substr: &str) -> bool {
+        self.key.contains(substr)
+    }
+
+    /// Get the interpolated message, use the cache if possible.
+    pub fn get_msg(&mut self, with_ts: bool) -> &str {
+        let cached = if with_ts { &mut self.cache.0 } else { &mut self.cache.1 };
+        if cached.is_none() {
+            *cached = Some(self.val.to_msg(&self.key, with_ts).to_string());
+        }
+        cached.as_ref().unwrap()
+    }
+}
+
+impl fmt::Debug for UpdaterEntry {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}={:?}", self.key, self.val)
+    }
 }

@@ -25,7 +25,7 @@
 use std::thread;
 use crossbeam_channel::{unbounded, Sender, Receiver};
 
-use entry::Entry;
+use entry::UpdaterEntry;
 use database::ThreadsafeDB;
 use message::CacheMsg;
 use message::CacheMsg::*;
@@ -46,7 +46,7 @@ pub struct Updater {
 /// These objects are sent to the updater thread from the DB and handlers.
 pub enum UpdaterMsg {
     NewUpdater(Updater),
-    Update(String, Entry, Option<ClientAddr>),
+    Update(UpdaterEntry, Option<ClientAddr>),
     Subscription(ClientAddr, String, bool),
     CancelSubscription(ClientAddr, String, bool),
 }
@@ -78,13 +78,13 @@ impl Updater {
     }
 
     /// Update this client, if the key is matched by one of the subscriptions.
-    pub fn update(&self, key: &str, entry: &Entry) -> bool {
+    pub fn update(&self, entry: &mut UpdaterEntry) -> bool {
         for &(ref substr, with_ts) in &self.sub_list {
-            if key.find(substr).is_some() {
-                match self.client.write(entry.to_msg(key, with_ts).to_string().as_bytes()) {
+            if entry.matches(substr) {
+                match self.client.write(entry.get_msg(with_ts).as_bytes()) {
                     Ok(_)    => {
-                        debug!("[{}] client -> update: {:?}={:?} | {:?}",
-                               self.addr, key, entry, self.sub_list);
+                        debug!("[{}] client -> update: {:?} | {:?}",
+                               self.addr, entry, self.sub_list);
                         return true;
                     },
                     Err(err) => {
