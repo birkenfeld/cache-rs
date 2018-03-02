@@ -152,21 +152,29 @@ impl DB {
         for catname in newcats {
             let mut need_update = true;
             // write to in-memory map
-            {
-                let submap = self.entry_map.entry(catname.into()).or_insert_with(HashMap::default);
-                if let Some(ref mut entry) = submap.get_mut(subkey) {
-                    // if we already have the same value, only adapt time and ttl info
-                    if entry.value == val && !entry.expired {
+            if let Some(catmap) = self.entry_map.get_mut(catname) {
+                if let Some(existing_entry) = catmap.get_mut(subkey) {
+                    if existing_entry.value == val && !existing_entry.expired {
+                        // if we already have the same value, only adapt time
+                        // and ttl info
                         need_update = false;
-                        entry.time = time;
-                        entry.ttl = ttl;
-                    } else if val == "" && entry.expired {
-                        // if the value is deleted, but the entry is already expired,
-                        // no need to record the deletion
-                        need_update = false;
+                        existing_entry.time = time;
+                        existing_entry.ttl = ttl;
+                    } else {
+                        if val == "" && existing_entry.expired {
+                            // if the value is deleted, but the entry was already
+                            // expired, no need to record the deletion
+                            need_update = false;
+                        }
+                        *existing_entry = entry.clone();
                     }
+                } else {
+                    catmap.insert(subkey.into(), entry.clone());
                 }
-                submap.insert(subkey.into(), entry.clone());
+            } else {
+                let mut catmap = HashMap::default();
+                catmap.insert(subkey.into(), entry.clone());
+                self.entry_map.insert(catname.into(), catmap);
             }
             // write to on-disk file
             if need_update && !no_store {
@@ -196,11 +204,11 @@ impl DB {
     /// Ask for many values matching a key wildcard.
     pub fn ask_wc(&self, wc: &str, with_ts: bool, send_q: &mpsc::Sender<String>) {
         let mut res = Vec::with_capacity(BATCHSIZE);
-        for (catname, submap) in &self.entry_map {
-            for (subkey, entry) in submap.iter() {
+        for (catname, catmap) in &self.entry_map {
+            for (subkey, entry) in catmap.iter() {
                 let fullkey = construct_key(catname, subkey);
                 if fullkey.find(wc).is_some() {
-                    res.push(entry.to_msg(fullkey, with_ts).to_string());
+                    res.push(entry.to_msg(&fullkey, with_ts).to_string());
                     if res.len() >= BATCHSIZE {
                         let _ = send_q.send(res.join(""));
                         res.clear();
@@ -218,8 +226,7 @@ impl DB {
         }
         let mut res = Vec::with_capacity(BATCHSIZE);
         self.store.query_history(key, from, from + delta, &mut |time, val| {
-            res.push(TellTS { key: key.into(), val: val.into(), time,
-                              ttl: 0., no_store: false }.to_string());
+            res.push(TellTS { key, val, time, ttl: 0., no_store: false }.to_string());
             if res.len() >= BATCHSIZE {
                 let _ = send_q.send(res.join(""));
                 res.clear();
@@ -242,36 +249,36 @@ impl DB {
                     };
                     if lock_denied {
                         info!("lock {}: denied to {} (locked by {})", key, client, entry.get().value);
-                        LockRes { key: key.into(), client: entry.get().value.clone().into() }
+                        LockRes { key, client: &entry.get().value }.to_string()
                     } else {
                         entry.insert(Entry::new(time, ttl, client));
                         debug!("lock {}: granted to {} (same client or lock expired)", key, client);
-                        LockRes { key: key.into(), client: "".into() }
+                        LockRes { key, client: "" }.to_string()
                     }
                 },
                 HEntry::Vacant(entry) => {
                     entry.insert(Entry::new(time, ttl, client));
                     info!("lock {}: granted to {} (no lock)", key, client);
-                    LockRes { key: key.into(), client: "".into() }
+                    LockRes { key, client: "" }.to_string()
                 }
             }
         } else {
             match entry {
                 HEntry::Occupied(ref entry) if entry.get().value != client => {
                     info!("unlock {}: denied to {} (locked by {})", key, client, entry.get().value);
-                    LockRes { key: key.into(), client: entry.get().value.clone().into() }
+                    LockRes { key, client: &entry.get().value }.to_string()
                 },
                 HEntry::Occupied(entry) => {
                     info!("unlock {}: granted to {} (unlocked)", key, client);
                     entry.remove();
-                    LockRes { key: key.into(), client: "".into() }
+                    LockRes { key, client: "" }.to_string()
                 },
                 HEntry::Vacant(..) => {
                     info!("unlock {}: granted to {} (unnecessary)", key, client);
-                    LockRes { key: key.into(), client: "".into() }
+                    LockRes { key, client: "" }.to_string()
                 }
             }
         };
-        let _ = send_q.send(msg.to_string());
+        let _ = send_q.send(msg);
     }
 }

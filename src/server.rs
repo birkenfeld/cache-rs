@@ -213,7 +213,7 @@ impl Server {
         let mut updaters: Vec<Updater> = Vec::with_capacity(8);
         for item in chan.iter() {
             match item {
-                UpdaterMsg::Update(ref key, ref entry, source) => {
+                UpdaterMsg::Update(key, entry, source) => {
                     // whenever the update to the client fails, we drop it from the
                     // mapping of connected clients
                     updaters.retain(|upd| {
@@ -221,7 +221,7 @@ impl Server {
                             // if the update came from a certain client, do not send it
                             // back to this client
                             Some(a) if a == upd.addr => true,
-                            _ => upd.update(key, entry),
+                            _ => upd.update(&key, &entry),
                         }
                     });
                 },

@@ -183,18 +183,18 @@ impl Store {
             } else {
                 let parts = line.trim().split('\t').collect::<Vec<_>>();
                 if parts.len() == 4 {
-                    let subkey = parts[0].into();
+                    let subkey = parts[0];
                     if parts[2] == "+" {
                         // value is non-expiring: we can take it as valid
                         if let Ok(v) = parts[1].parse::<f64>() {
-                            map.insert(subkey, Entry::new(v, 0., parts[3]));
+                            map.insert(subkey.into(), Entry::new(v, 0., parts[3]));
                         }
                     } else if parts[3] != "-" {
                         // value was expiring but is not empty: take it as expired
                         if let Ok(v) = parts[1].parse::<f64>() {
-                            map.insert(subkey, Entry::new(v, 0., parts[3]).expired());
+                            map.insert(subkey.into(), Entry::new(v, 0., parts[3]).expired());
                         }
-                    } else if let Some(entry) = map.get_mut(&subkey) {
+                    } else if let Some(entry) = map.get_mut(subkey) {
                         // value is empty: be sure to mark any current value as expired
                         entry.expired = true;
                     }

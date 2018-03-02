@@ -23,8 +23,6 @@
 //! This module contains the definition of a protocol message, along with tools
 //! to parse and string-format it.
 
-use std::borrow::Cow;
-
 use regex::Regex;
 
 use util::localtime;
@@ -45,8 +43,6 @@ lazy_static! {
     "#).unwrap();
 }
 
-pub type Cstr<'a> = Cow<'a, str>;
-
 /// An algebraic data type that represents any message (line) that can be sent
 /// over the network in the cache protocol.
 ///
@@ -57,31 +53,31 @@ pub enum CacheMsg<'a> {
     /// quit a.k.a. empty line
     Quit,
     /// value update without timestamp
-    Tell      { key: Cstr<'a>, val: Cstr<'a>, no_store: bool },
+    Tell      { key: &'a str, val: &'a str, no_store: bool },
     /// value update with timestamp
-    TellTS    { key: Cstr<'a>, val: Cstr<'a>, time: f64, ttl: f64, no_store: bool },
+    TellTS    { key: &'a str, val: &'a str, time: f64, ttl: f64, no_store: bool },
     /// expired value update without timestamp
-    TellOld   { key: Cstr<'a>, val: Cstr<'a> },
+    TellOld   { key: &'a str, val: &'a str },
     /// expired value update with timestamp
-    TellOldTS { key: Cstr<'a>, val: Cstr<'a>, time: f64, ttl: f64 },
+    TellOldTS { key: &'a str, val: &'a str, time: f64, ttl: f64 },
     /// query for a single key
-    Ask       { key: Cstr<'a>, with_ts: bool },
+    Ask       { key: &'a str, with_ts: bool },
     /// query for multiple keys with a wildcard
-    AskWild   { key_wc: Cstr<'a>, with_ts: bool },
+    AskWild   { key: &'a str, with_ts: bool },
     /// query for history of a single key
-    AskHist   { key: Cstr<'a>, from: f64, delta: f64 },
+    AskHist   { key: &'a str, from: f64, delta: f64 },
     /// subscription to a key substring
-    Subscribe { key_sub: Cstr<'a>, with_ts: bool },
+    Subscribe { key: &'a str, with_ts: bool },
     /// unsubscription
-    Unsub     { key_sub: Cstr<'a>, with_ts: bool },
-    /// set or delete of a prefix rewrite
-    Rewrite   { new_prefix: Cstr<'a>, old_prefix: Cstr<'a> },
+    Unsub     { key: &'a str, with_ts: bool },
     /// lock request
-    Lock      { key: Cstr<'a>, client: Cstr<'a>, time: f64, ttl: f64 },
+    Lock      { key: &'a str, client: &'a str, time: f64, ttl: f64 },
     /// unlock request
-    Unlock    { key: Cstr<'a>, client: Cstr<'a> },
+    Unlock    { key: &'a str, client: &'a str },
     /// result of a lock or unlock request
-    LockRes   { key: Cstr<'a>, client: Cstr<'a> },
+    LockRes   { key: &'a str, client: &'a str },
+    /// set or delete of a prefix rewrite
+    Rewrite   { new_prefix: &'a str, old_prefix: &'a str },
 }
 
 use self::CacheMsg::*;
@@ -110,39 +106,37 @@ impl<'a> CacheMsg<'a> {
                 "=" => {
                     // handle the "no store" flag, a "#" after the key name
                     let no_store = key.ends_with('#');
-                    let real_key = if no_store { &key[0..key.len() - 1] } else { &key };
+                    let key = if no_store { &key[0..key.len() - 1] } else { key };
                     if has_tsop {
-                        Some(TellTS { key: real_key.into(), val: val.into(),
-                                      time: t1, ttl: dt, no_store })
+                        Some(TellTS { key, val, time: t1, ttl: dt, no_store })
                     } else {
-                        Some(Tell { key: real_key.into(), val: val.into(),
-                                    no_store })
+                        Some(Tell { key, val, no_store })
                     }},
                 "!" =>
                     if has_tsop {
-                        Some(TellOldTS { key: key.into(), val: val.into(), time: t1, ttl: dt })
+                        Some(TellOldTS { key, val, time: t1, ttl: dt })
                     } else {
-                        Some(TellOld { key: key.into(), val: val.into() })
+                        Some(TellOld { key, val })
                     },
                 "?" =>
                     if has_tsop && dt != 0. {
-                        Some(AskHist { key: key.into(), from: t1, delta: dt })
+                        Some(AskHist { key, from: t1, delta: dt })
                     } else {
-                        Some(Ask { key: key.into(), with_ts: has_tsop })
+                        Some(Ask { key, with_ts: has_tsop })
                     },
-                "*" =>  Some(AskWild { key_wc: key.into(), with_ts: has_tsop }),
-                ":" =>  Some(Subscribe { key_sub: key.into(), with_ts: has_tsop }),
-                "|" =>  Some(Unsub { key_sub: key.into(), with_ts: has_tsop }),
+                "*" =>  Some(AskWild { key, with_ts: has_tsop }),
+                ":" =>  Some(Subscribe { key, with_ts: has_tsop }),
+                "|" =>  Some(Unsub { key, with_ts: has_tsop }),
                 "$" => {
                     let client = &val[1..];
                     if &val[0..1] == "+" {
-                        Some(Lock { key: key.into(), client: client.into(), time: t1, ttl: dt })
+                        Some(Lock { key, client, time: t1, ttl: dt })
                     } else if &val[0..1] == "-" {
-                        Some(Unlock { key: key.into(), client: client.into() })
+                        Some(Unlock { key, client })
                     } else {
-                        Some(LockRes { key: key.into(), client: val.into() })
+                        Some(LockRes { key, client: val })
                     }},
-                "~" =>  Some(Rewrite { new_prefix: key.into(), old_prefix: val.into() }),
+                "~" =>  Some(Rewrite { new_prefix: key, old_prefix: val }),
                 _   =>  None,
             }
         } else if line.trim() == "" {
@@ -161,51 +155,51 @@ impl<'a> ToString for CacheMsg<'a> {
     fn to_string(&self) -> String {
         match *self {
             Quit => String::from("\n"),
-            Tell { ref key, ref val, no_store } =>
+            Tell { key, val, no_store } =>
                 format!("{}{}={}\n", key, if no_store { "#" } else { "" }, val),
-            TellTS { ref key, ref val, time, ttl, no_store } =>
+            TellTS { key, val, time, ttl, no_store } =>
                 if ttl > 0. {
                     format!("{}+{}@{}{}={}\n", time, ttl, key, if no_store { "#" } else { "" }, val)
                 } else {
                     format!("{}@{}{}={}\n", time, key, if no_store { "#" } else { "" }, val)
                 },
-            TellOld { ref key, ref val } =>
+            TellOld { key, val } =>
                 format!("{}!{}\n", key, val),
-            TellOldTS { ref key, ref val, time, ttl } =>
+            TellOldTS { key, val, time, ttl } =>
                 format!("{}+{}@{}!{}\n", time, ttl, key, val),
-            Ask { ref key, with_ts } =>
+            Ask { key, with_ts } =>
                 if with_ts {
                     format!("@{}?\n", key)
                 } else {
                     format!("{}?\n", key)
                 },
-            AskWild { ref key_wc, with_ts } =>
+            AskWild { key, with_ts } =>
                 if with_ts {
-                    format!("@{}*\n", key_wc)
+                    format!("@{}*\n", key)
                 } else {
-                    format!("{}*\n", key_wc)
+                    format!("{}*\n", key)
                 },
-            AskHist { ref key, from, delta } =>
+            AskHist { key, from, delta } =>
                 format!("{}+{}@{}?\n", from, delta, key),
-            Subscribe { ref key_sub, with_ts } =>
+            Subscribe { key, with_ts } =>
                 if with_ts {
-                    format!("@{}:\n", key_sub)
+                    format!("@{}:\n", key)
                 } else {
-                    format!("{}:\n", key_sub)
+                    format!("{}:\n", key)
                 },
-            Unsub { ref key_sub, with_ts } =>
+            Unsub { key, with_ts } =>
                 if with_ts {
-                    format!("@{}|\n", key_sub)
+                    format!("@{}|\n", key)
                 } else {
-                    format!("{}|\n", key_sub)
+                    format!("{}|\n", key)
                 },
-            Lock { ref key, ref client, time, ttl } => {
+            Lock { key, client, time, ttl } => {
                 format!("{}+{}@{}$+{}\n", time, ttl, key, client)},
-            Unlock { ref key, ref client } => {
+            Unlock { key, client } => {
                 format!("{}$-{}\n", key, client)},
-            LockRes { ref key, ref client } => {
+            LockRes { key, client } => {
                 format!("{}${}\n", key, client)},
-            Rewrite { ref new_prefix, ref old_prefix } =>
+            Rewrite { new_prefix, old_prefix } =>
                 format!("{}~{}\n", new_prefix, old_prefix),
         }
     }

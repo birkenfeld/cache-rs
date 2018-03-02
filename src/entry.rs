@@ -22,8 +22,6 @@
 //
 //! This module contains the definition for the in-memory and on-disk database.
 
-use std::borrow::Cow;
-
 use message::CacheMsg;
 use message::CacheMsg::{Tell, TellOld, TellTS, TellOldTS};
 
@@ -66,28 +64,27 @@ impl Entry {
     }
 
     /// Convert the Entry into a Tell-type CacheMsg.
-    pub fn to_msg<'a, T: Into<Cow<'a, str>>>(&'a self, key: T, with_ts: bool) -> CacheMsg {
+    pub fn to_msg<'a>(&'a self, key: &'a str, with_ts: bool) -> CacheMsg<'a> {
         if with_ts {
             if self.expired {
-                TellOldTS { key: key.into(), val: self.value.clone().into(),
-                            time: self.time, ttl: self.ttl }
+                TellOldTS { key, val: &self.value, time: self.time, ttl: self.ttl }
             } else {
-                TellTS { key: key.into(), val: self.value.clone().into(),
+                TellTS { key, val: &self.value,
                          time: self.time, ttl: self.ttl, no_store: false }
             }
         } else if self.expired {
-            TellOld { key: key.into(), val: self.value.clone().into() }
+            TellOld { key, val: &self.value }
         } else {
-            Tell { key: key.into(), val: self.value.clone().into(), no_store: false }
+            Tell { key, val: &self.value, no_store: false }
         }
     }
 
     /// Return a Tell-type CacheMsg that represents a missing entry.
     pub fn no_msg(key: &str, with_ts: bool) -> CacheMsg {
         if with_ts {
-            TellOldTS { key: key.into(), val: "".into(), time: 0., ttl: 0. }
+            TellOldTS { key, val: "", time: 0., ttl: 0. }
         } else {
-            TellOld { key: key.into(), val: "".into() }
+            TellOld { key, val: "" }
         }
     }
 }

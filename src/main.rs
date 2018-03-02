@@ -22,6 +22,8 @@
 //
 //! The main entry point and crate definitions.
 
+#![feature(nll)]
+
 #[macro_use]
 extern crate log;
 extern crate mlzlog;

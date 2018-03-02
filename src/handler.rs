@@ -133,40 +133,38 @@ impl Handler {
         let mut db = self.db.lock();
         match *msg {
             // key updates
-            Tell { ref key, ref val, no_store } =>
+            Tell { key, val, no_store } =>
                 if let Err(err) = db.tell(key, val, localtime(), 0., no_store,
                                           self.client.get_addr()) {
                     warn!("could not write key {} to db: {}", key, err);
                 },
-            TellTS { time, ttl, ref key, ref val, no_store } =>
+            TellTS { time, ttl, key, val, no_store } =>
                 if let Err(err) = db.tell(key, val, time, ttl, no_store,
                                           self.client.get_addr()) {
                     warn!("could not write key {} to db: {}", key, err);
                 },
             // key inquiries
-            Ask { ref key, with_ts } =>
+            Ask { key, with_ts } =>
                 db.ask(key, with_ts, &self.send_q),
-            AskWild { ref key_wc, with_ts } =>
-                db.ask_wc(key_wc, with_ts, &self.send_q),
-            AskHist { ref key, from, delta } =>
+            AskWild { key, with_ts } =>
+                db.ask_wc(key, with_ts, &self.send_q),
+            AskHist { key, from, delta } =>
                 db.ask_hist(key, from, delta, &self.send_q),
             // locking
-            Lock { ref key, ref client, time, ttl } =>
+            Lock { key, client, time, ttl } =>
                 db.lock(true, key, client, time, ttl, &self.send_q),
-            Unlock { ref key, ref client } =>
+            Unlock { key, client } =>
                 db.lock(false, key, client, 0., 0., &self.send_q),
             // meta messages
-            Rewrite { ref new_prefix, ref old_prefix } =>
+            Rewrite { new_prefix, old_prefix } =>
                 db.rewrite(new_prefix, old_prefix),
-            Subscribe { ref key_sub, with_ts } => {
-                let key = key_sub.clone().into_owned();
+            Subscribe { key, with_ts } => {
                 let _ = self.upd_q.send(
-                    UpdaterMsg::Subscription(self.client.get_addr(), key, with_ts));
+                    UpdaterMsg::Subscription(self.client.get_addr(), key.into(), with_ts));
             },
-            Unsub { ref key_sub, with_ts } => {
-                let key = key_sub.clone().into_owned();
+            Unsub { key, with_ts } => {
                 let _ = self.upd_q.send(
-                    UpdaterMsg::CancelSubscription(self.client.get_addr(), key, with_ts));
+                    UpdaterMsg::CancelSubscription(self.client.get_addr(), key.into(), with_ts));
             },
             // we ignore TellOlds
             _ => (),
