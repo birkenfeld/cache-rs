@@ -56,6 +56,7 @@ pub enum UpdaterMsg {
 pub struct Handler {
     name:   String,
     client: Box<Client>,
+    addr:   ClientAddr,
     db:     ThreadsafeDB,
     upd_q:  Sender<UpdaterMsg>,
     send_q: Sender<String>,
@@ -107,6 +108,7 @@ impl Handler {
         thread::spawn(move || Handler::sender(&thread_name, send_client, r_msgs));
         Handler {
             name:   client.get_addr().to_string(),
+            addr:   client.get_addr(),
             send_q: w_msgs,
             client,
             db,
@@ -126,20 +128,18 @@ impl Handler {
     }
 
     /// Handle a single cache message.
-    fn handle_msg(&mut self, msg: &CacheMsg) {
+    fn handle_msg(&self, msg: CacheMsg) {
         // get a handle to the DB (since all but one of the message types require DB
         // access, we do it here once)
         let mut db = self.db.lock();
-        match *msg {
+        match msg {
             // key updates
             Tell { key, val, no_store } =>
-                if let Err(err) = db.tell(key, val, localtime(), 0., no_store,
-                                          self.client.get_addr()) {
+                if let Err(err) = db.tell(key, val, localtime(), 0., no_store, self.addr) {
                     warn!("could not write key {} to db: {}", key, err);
                 },
             TellTS { time, ttl, key, val, no_store } =>
-                if let Err(err) = db.tell(key, val, time, ttl, no_store,
-                                          self.client.get_addr()) {
+                if let Err(err) = db.tell(key, val, time, ttl, no_store, self.addr) {
                     warn!("could not write key {} to db: {}", key, err);
                 },
             // key inquiries
@@ -159,11 +159,11 @@ impl Handler {
                 db.rewrite(new_prefix, old_prefix),
             Subscribe { key, with_ts } => {
                 let _ = self.upd_q.send(
-                    UpdaterMsg::Subscription(self.client.get_addr(), key.into(), with_ts));
+                    UpdaterMsg::Subscription(self.addr, key.into(), with_ts));
             },
             Unsub { key, with_ts } => {
                 let _ = self.upd_q.send(
-                    UpdaterMsg::CancelSubscription(self.client.get_addr(), key.into(), with_ts));
+                    UpdaterMsg::CancelSubscription(self.addr, key.into(), with_ts));
             },
             // we ignore TellOlds
             _ => (),
@@ -171,7 +171,7 @@ impl Handler {
     }
 
     /// Process a single line (message).
-    fn process(&mut self, line: &str) -> bool {
+    fn process(&self, line: &str) -> bool {
         match CacheMsg::parse(line) {
             Some(Quit) => {
                 // an empty line closes the connection
@@ -179,7 +179,7 @@ impl Handler {
             }
             Some(msg) => {
                 debug!("[{}] processing {:?} => {:?}", self.name, line, msg);
-                self.handle_msg(&msg);
+                self.handle_msg(msg);
                 true
             }
             None => {
