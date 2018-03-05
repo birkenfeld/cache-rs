@@ -104,7 +104,7 @@ impl Handler {
         let (w_msgs, r_msgs) = unbounded();
         let send_client = client.try_clone().expect("could not clone socket");
         let thread_name = client.get_addr().to_string();
-        thread::spawn(move || Handler::sender(thread_name, send_client, r_msgs));
+        thread::spawn(move || Handler::sender(&thread_name, send_client, r_msgs));
         Handler {
             name:   client.get_addr().to_string(),
             send_q: w_msgs,
@@ -115,7 +115,7 @@ impl Handler {
     }
 
     /// Thread that sends back replies (but not updates) to the client.
-    fn sender(name: String, client: Box<Client>, r_msgs: Receiver<String>) {
+    fn sender(name: &str, client: Box<Client>, r_msgs: Receiver<String>) {
         for to_send in r_msgs.iter() {
             if let Err(err) = client.write(to_send.as_bytes()) {
                 warn!("[{}] write error in sender: {}", name, err);

@@ -32,22 +32,22 @@ use time;
 /// Local time as floating seconds since the epoch.
 pub fn localtime() -> f64 {
     let ts = time::get_time();
-    (ts.sec as f64) + ((ts.nsec as f64) / 1000000000.)
+    (ts.sec as f64) + ((ts.nsec as f64) / 1_000_000_000.)
 }
 
 
 /// Float time to timespec.
 pub fn to_timespec(t: f64) -> time::Timespec {
     let itime = (1e9 * t) as u64;
-    time::Timespec { nsec: (itime % 1000000000) as i32,
-                     sec:  (itime / 1000000000) as i64 }
+    time::Timespec { nsec: (itime % 1_000_000_000) as i32,
+                     sec:  (itime / 1_000_000_000) as i64 }
 }
 
 
 /// Time to floating.
 pub fn to_timefloat(t: time::Tm) -> f64 {
     let ts = t.to_timespec();
-    (ts.sec as f64) + ((ts.nsec as f64) / 1000000000.)
+    (ts.sec as f64) + ((ts.nsec as f64) / 1_000_000_000.)
 }
 
 
@@ -86,7 +86,7 @@ pub fn write_pidfile<P: AsRef<Path>>(pid_path: P) -> io::Result<()> {
     let file = pid_path.join("cache_rs.pid");
     let my_pid = read_link("/proc/self")?;
     let my_pid = my_pid.as_os_str().to_str().unwrap().as_bytes();
-    File::create(file)?.write(my_pid)?;
+    File::create(file)?.write_all(my_pid)?;
     Ok(())
 }
 
