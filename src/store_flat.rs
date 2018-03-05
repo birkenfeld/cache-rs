@@ -173,34 +173,24 @@ impl Store {
     /// Load keys from a single file for category "catname".
     fn load_one_file(&self, filename: &Path) -> io::Result<HashMap<String, Entry>> {
         let fp = open_file(filename, "r")?;
-        let mut reader = BufReader::new(fp);
-        let mut line = String::new();
         let mut map = HashMap::default();
-        while let Ok(n) = reader.read_line(&mut line) {
-            if n == 0 {
-                break;
-            } else {
-                let parts = line.trim().split('\t').collect::<Vec<_>>();
-                if parts.len() == 4 {
-                    let subkey = parts[0];
-                    if parts[2] == "+" {
-                        // value is non-expiring: we can take it as valid
-                        if let Ok(v) = parts[1].parse() {
-                            map.insert(subkey.into(), Entry::new(v, 0., parts[3]));
-                        }
-                    } else if parts[3] != "-" {
-                        // value was expiring but is not empty: take it as expired
-                        if let Ok(v) = parts[1].parse() {
-                            map.insert(subkey.into(), Entry::new(v, 0., parts[3]).expired());
-                        }
-                    } else if let Some(entry) = map.get_mut(subkey) {
-                        // value is empty: be sure to mark any current value as expired
-                        entry.expired = true;
-                    }
+        Self::read_storefile(fp, |parts| {
+            let subkey = parts[0];
+            if parts[2] == "+" {
+                // value is non-expiring: we can take it as valid
+                if let Ok(v) = parts[1].parse() {
+                    map.insert(subkey.into(), Entry::new(v, 0., parts[3]));
                 }
+            } else if parts[3] != "-" {
+                // value was expiring but is not empty: take it as expired
+                if let Ok(v) = parts[1].parse() {
+                    map.insert(subkey.into(), Entry::new(v, 0., parts[3]).expired());
+                }
+            } else if let Some(entry) = map.get_mut(subkey) {
+                // value is empty: be sure to mark any current value as expired
+                entry.expired = true;
             }
-            line.clear();
-        }
+        });
         Ok(map)
     }
 
@@ -263,16 +253,28 @@ impl Store {
             return Ok(res)
         }
         let fp = open_file(path, "r")?;
-        let reader = BufReader::new(fp);
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                let parts = line.trim().split('\t').collect::<Vec<_>>();
-                if parts.len() == 4 && parts[0] == subkey {
-                    let val = if parts[3] == "-" { "" } else { parts[3] };
-                    res.push((parts[1].parse().unwrap_or(0.), val.into()));
-                }
+        Self::read_storefile(fp, |parts| {
+            if parts[0] == subkey {
+                let val = if parts[3] == "-" { "" } else { parts[3] };
+                res.push((parts[1].parse().unwrap_or(0.), val.into()));
             }
-        }
+        });
         Ok(res)
+    }
+
+    /// Read a store file and call the closure for each entry.
+    fn read_storefile<F: FnMut(Vec<&str>)>(fp: File, mut f: F) {
+        let mut reader = BufReader::new(fp);
+        let mut line = String::new();
+        while let Ok(n) = reader.read_line(&mut line) {
+            if n == 0 {
+                break;
+            }
+            let parts = line.trim().split('\t').collect::<Vec<_>>();
+            if parts.len() == 4 {
+                f(parts);
+            }
+            line.clear();
+        }
     }
 }
