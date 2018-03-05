@@ -127,8 +127,8 @@ impl UpdaterEntry {
     }
 
     /// Check if the entry matches a subscription substring.
-    pub fn matches(&self, substr: &str) -> bool {
-        self.key.contains(substr)
+    pub fn key(&self) -> &str {
+        &self.key
     }
 
     /// Get the interpolated message, use the cache if possible.

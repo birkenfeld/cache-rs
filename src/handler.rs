@@ -23,6 +23,7 @@
 //! This module contains the handler for a single network connection.
 
 use std::thread;
+use aho_corasick::{Automaton, AcAutomaton};
 use crossbeam_channel::{unbounded, Sender, Receiver};
 
 use entry::UpdaterEntry;
@@ -40,7 +41,9 @@ use server::{ClientAddr, Client, RECVBUF_LEN};
 pub struct Updater {
     pub addr: ClientAddr,
     client:   Box<Client>,
-    sub_list: Vec<(String, bool)>,
+    subs:     Vec<String>,
+    with_ts:  bool,
+    searcher: AcAutomaton<String>,
 }
 
 /// These objects are sent to the updater thread from the DB and handlers.
@@ -65,38 +68,30 @@ pub struct Handler {
 
 impl Updater {
     pub fn new(client: Box<Client>, addr: ClientAddr) -> Updater {
-        Updater { addr, client, sub_list: vec![] }
+        Updater { addr, client, subs: vec![], with_ts: false,
+                  searcher: AcAutomaton::new(vec![]) }
     }
 
     /// Add a new subscription for this client.
     pub fn add_subscription(&mut self, key: String, with_ts: bool) {
-        self.sub_list.push((key, with_ts));
+        self.subs.push(key);
+        self.with_ts |= with_ts;
+        self.searcher = AcAutomaton::new(self.subs.clone());
     }
 
     /// Remove a subscription for this client.
-    pub fn remove_subscription(&mut self, key: String, with_ts: bool) {
-        let compare_item = (key, with_ts);
-        self.sub_list.retain(|item| item != &compare_item);
+    pub fn remove_subscription(&mut self, key: String, _with_ts: bool) {
+        self.subs.retain(|substr| substr != &key);
+        self.with_ts = !self.subs.is_empty();
+        self.searcher = AcAutomaton::new(self.subs.clone());
     }
 
     /// Update this client, if the key is matched by one of the subscriptions.
-    pub fn update(&self, entry: &mut UpdaterEntry) -> bool {
-        for &(ref substr, with_ts) in &self.sub_list {
-            if entry.matches(substr) {
-                match self.client.write(entry.get_msg(with_ts).as_bytes()) {
-                    Ok(_)    => {
-                        debug!("[{}] client -> update: {:?} | {:?}",
-                               self.addr, entry, self.sub_list);
-                        return true;
-                    },
-                    Err(err) => {
-                        info!("[{}] dropping client: {}", self.addr, err);
-                        return false;
-                    }
-                }
-            }
+    pub fn update(&self, entry: &mut UpdaterEntry) {
+        if !self.subs.is_empty() && self.searcher.find(entry.key()).next().is_some() {
+            debug!("[{}] update: {:?} | {:?}", self.addr, entry, self.subs);
+            let _ = self.client.write(entry.get_msg(self.with_ts).as_bytes());
         }
-        true
     }
 }
 

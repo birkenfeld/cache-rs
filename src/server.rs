@@ -215,16 +215,14 @@ impl Server {
         for item in chan.iter() {
             match item {
                 UpdaterMsg::Update(mut entry, source) => {
-                    // whenever the update to the client fails, we drop it from the
-                    // mapping of connected clients
-                    updaters.retain(|upd| {
+                    for upd in &updaters {
                         match source {
                             // if the update came from a certain client, do not send it
                             // back to this client
-                            Some(a) if a == upd.addr => true,
+                            Some(a) if a == upd.addr => continue,
                             _ => upd.update(&mut entry),
                         }
-                    });
+                    }
                 },
                 UpdaterMsg::NewUpdater(updater) => {
                     updaters.push(updater);

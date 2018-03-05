@@ -32,6 +32,7 @@ extern crate fnv;
 #[macro_use]
 extern crate clap;
 extern crate regex;
+extern crate aho_corasick;
 #[macro_use]
 extern crate lazy_static;
 extern crate parking_lot;
