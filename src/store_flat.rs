@@ -107,12 +107,12 @@ impl database::Store for Store {
                     }
                     let path = dentry.path();
                     match self.load_one_file(&path) {
-                        Ok((map, nfileentries)) => {
+                        Ok(map) => {
                             let catname = path.file_name().unwrap().to_string_lossy()
                                                                    .replace('-', "/");
-                            entry_map.insert(catname, map);
-                            nentries += nfileentries;
+                            nentries += map.len();
                             nfiles += 1;
+                            entry_map.insert(catname, map);
                         },
                         Err(err) => {
                             warn!("could not read data from store file {:?}: {}",
@@ -171,11 +171,10 @@ impl database::Store for Store {
 
 impl Store {
     /// Load keys from a single file for category "catname".
-    fn load_one_file(&self, filename: &Path) -> io::Result<(HashMap<String, Entry>, usize)> {
+    fn load_one_file(&self, filename: &Path) -> io::Result<HashMap<String, Entry>> {
         let fp = open_file(filename, "r")?;
         let mut reader = BufReader::new(fp);
         let mut line = String::new();
-        let mut nentries = 0;
         let mut map = HashMap::default();
         while let Ok(n) = reader.read_line(&mut line) {
             if n == 0 {
@@ -186,24 +185,23 @@ impl Store {
                     let subkey = parts[0];
                     if parts[2] == "+" {
                         // value is non-expiring: we can take it as valid
-                        if let Ok(v) = parts[1].parse::<f64>() {
+                        if let Ok(v) = parts[1].parse() {
                             map.insert(subkey.into(), Entry::new(v, 0., parts[3]));
                         }
                     } else if parts[3] != "-" {
                         // value was expiring but is not empty: take it as expired
-                        if let Ok(v) = parts[1].parse::<f64>() {
+                        if let Ok(v) = parts[1].parse() {
                             map.insert(subkey.into(), Entry::new(v, 0., parts[3]).expired());
                         }
                     } else if let Some(entry) = map.get_mut(subkey) {
                         // value is empty: be sure to mark any current value as expired
                         entry.expired = true;
                     }
-                    nentries += 1;
                 }
             }
             line.clear();
         }
-        Ok((map, nentries))
+        Ok(map)
     }
 
     /// Set the "lastday" symlink to the latest yyyy/mm-dd directory.
