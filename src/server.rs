@@ -239,6 +239,9 @@ impl Server {
                         upd.remove_subscription(key, with_ts);
                     }
                 },
+                UpdaterMsg::RemoveUpdater(addr) => {
+                    updaters.retain(|upd| upd.addr != addr);
+                }
             }
         }
     }

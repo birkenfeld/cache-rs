@@ -49,6 +49,7 @@ pub enum UpdaterMsg {
     Update(UpdaterEntry, Option<ClientAddr>),
     Subscription(ClientAddr, String, bool),
     CancelSubscription(ClientAddr, String, bool),
+    RemoveUpdater(ClientAddr),
 }
 
 /// Handles incoming queries on a connected client and executes the corresponding
@@ -219,6 +220,7 @@ impl Handler {
             }
             buf.drain(0..from);
         }
+        let _ = self.upd_q.send(UpdaterMsg::RemoveUpdater(self.addr));
         info!("[{}] handler is finished", self.name);
         self.client.close();
     }
