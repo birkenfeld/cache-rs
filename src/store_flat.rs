@@ -26,7 +26,7 @@ use std::mem;
 use std::fs::{File, read_dir, remove_file, hard_link, remove_dir_all};
 use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
 use std::os::unix::fs::symlink;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use fnv::FnvHashMap as HashMap;
 use time::{now, Tm, Duration};
 
@@ -106,16 +106,17 @@ impl database::Store for Store {
                         continue;
                     }
                     let path = dentry.path();
-                    let catname = path.file_name().unwrap();
-                    let catname = catname.to_string_lossy().replace("-", "/");
-                    match self.load_one_file(catname, dentry.path(), entry_map) {
-                        Ok(n) => {
-                            nentries += n;
+                    match self.load_one_file(&path) {
+                        Ok((map, nfileentries)) => {
+                            let catname = path.file_name().unwrap().to_string_lossy()
+                                                                   .replace('-', "/");
+                            entry_map.insert(catname, map);
+                            nentries += nfileentries;
                             nfiles += 1;
                         },
                         Err(err) => {
                             warn!("could not read data from store file {:?}: {}",
-                                  dentry.path(), err);
+                                  path.display(), err);
                         }
                     }
                 }
@@ -170,8 +171,7 @@ impl database::Store for Store {
 
 impl Store {
     /// Load keys from a single file for category "catname".
-    fn load_one_file(&mut self, catname: String, filename: PathBuf,
-                     entry_map: &mut EntryMap) -> io::Result<i32> {
+    fn load_one_file(&self, filename: &Path) -> io::Result<(HashMap<String, Entry>, usize)> {
         let fp = open_file(filename, "r")?;
         let mut reader = BufReader::new(fp);
         let mut line = String::new();
@@ -203,8 +203,7 @@ impl Store {
             }
             line.clear();
         }
-        entry_map.insert(catname, map);
-        Ok(nentries)
+        Ok((map, nentries))
     }
 
     /// Set the "lastday" symlink to the latest yyyy/mm-dd directory.
@@ -240,7 +239,7 @@ impl Store {
 
     /// Create a new file for a category.
     fn create_fd(&self, catname: &str) -> io::Result<File> {
-        let safe_catname = catname.replace("/", "-");
+        let safe_catname = catname.replace('/', "-");
         let subpath = self.storepath.join(&self.ymd_path);
         let linkfile = self.storepath.join(&safe_catname).join(&self.ymd_path);
         ensure_dir(&subpath)?;
@@ -259,7 +258,7 @@ impl Store {
     /// Read history for a given subkey from a file.
     fn read_history(&self, path: &str, catname: &str, subkey: &str)
                     -> io::Result<Vec<(f64, String)>> {
-        let catname = catname.replace("/", "-");
+        let catname = catname.replace('/', "-");
         let path = self.storepath.join(path).join(catname);
         let mut res = Vec::new();
         if !path.is_file() {
