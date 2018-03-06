@@ -184,9 +184,8 @@ impl DB {
             // notify about update (nostore keys are always propagated)
             if need_update || no_store {
                 let fullkey = construct_key(catname, subkey);
-                self.upd_q.send(
-                    UpdaterMsg::Update(UpdaterEntry::new(fullkey, &entry), Some(from)))
-                          .expect("could not send to updates queue");
+                let _ = self.upd_q.send(
+                    UpdaterMsg::Update(UpdaterEntry::new(fullkey, &entry), Some(from)));
             }
         }
         Ok(())

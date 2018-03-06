@@ -22,10 +22,12 @@ all_msg_with_ttl = ['+5@ben/%s/k%06d=%s\n' % (rnd_key, i, rnd_key)
                     for i in xrange(opts.n)]
 all_set = set(s.strip() for s in all_msg)
 
+
 def create_socket(tp=socket.SOCK_STREAM):
     s = socket.socket(socket.AF_INET, tp)
     s.connect((opts.c, 14869))
     return s
+
 
 def connect(nmain, nsub=None):
     mains = []
@@ -39,13 +41,15 @@ def connect(nmain, nsub=None):
     time.sleep(0.2)
     return mains, subs
 
-def recvall(s):
+
+def recvall(s, length=None):
     res = ''
     start = time.time()
-    length = len(''.join(all_msg))
+    length = length or len(''.join(all_msg))
     while len(res) < length and time.time() - start < 10:
         res += s.recv(length)
     return set(res.splitlines())
+
 
 def udp():
     mains, subs = connect(1)
@@ -61,6 +65,7 @@ def udp():
     assert msg_set == all_set
     return t1
 
+
 def single_writer():
     mains, subs = connect(1)
 
@@ -75,6 +80,7 @@ def single_writer():
     assert msg_set == all_set
     return t1
 
+
 def multi_writer():
     mains, subs = connect(opts.s)
 
@@ -87,6 +93,7 @@ def multi_writer():
         msg_set = recvall(s)
         assert msg_set == all_set
     return t1
+
 
 def multi_writer_with_ttl():
     mains, subs = connect(opts.s)
@@ -101,6 +108,7 @@ def multi_writer_with_ttl():
         assert msg_set == all_set
     return t1
 
+
 def ask_only():
     mains, subs = connect(1, 0)
 
@@ -113,6 +121,26 @@ def ask_only():
     msg_set = recvall(mains[0])
     assert msg_set == all_set
     return t1
+
+
+def ask_history():
+    mains, subs = connect(opts.s, 0)
+
+    hist_msg = ['%.1f@ben/%s/k000000=%d\n' % (i+0.1, rnd_key, i)
+                for i in range(opts.n)]
+    mains[0].sendall(''.join(hist_msg))
+    mains[0].sendall('ben/%s/k*\n' % rnd_key)
+    expect = 'ben/%s/k000000=%d\n' % (rnd_key, opts.n - 1)
+    msg_set = recvall(mains[0], len(expect))
+    assert msg_set == set([expect.strip()])
+    t1 = time.time()
+    for main in mains:
+        main.sendall('0-%s@ben/%s/k000000?\n' % (t1 + 10, rnd_key))
+    for main in mains:
+        msg_set = recvall(main, len(''.join(hist_msg)))
+        assert msg_set == set(m.strip() for m in hist_msg)
+    return t1
+
 
 fn = globals()[benchmark]
 t1 = fn()
