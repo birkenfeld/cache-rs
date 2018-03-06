@@ -23,6 +23,7 @@
 //! This module contains the handler for a single network connection.
 
 use std::thread;
+use memchr::memchr;
 use aho_corasick::{Automaton, AcAutomaton};
 use crossbeam_channel::{unbounded, Sender, Receiver};
 
@@ -193,7 +194,7 @@ impl Handler {
     }
 
     /// Handle incoming stream of messages.
-    pub fn handle(&mut self) {
+    pub fn handle(mut self) {
         let mut buf = Vec::with_capacity(RECVBUF_LEN);
         let mut recvbuf = [0u8; RECVBUF_LEN];
 
@@ -201,25 +202,26 @@ impl Handler {
             // read a chunk of incoming data
             let got = match self.client.read(&mut recvbuf) {
                 Err(err) => {
-                    warn!("[{}] error in recv(): {}", self.name,  err);
+                    warn!("[{}] error in recv(): {}", self.name, err);
                     break;
                 },
                 Ok(0)    => break,  // no data from blocking read...
                 Ok(got)  => got,
             };
             // convert to string and add to our buffer
-            buf.extend_from_slice(&recvbuf[0..got]);
+            buf.extend_from_slice(&recvbuf[..got]);
             // process all whole lines we got
             let mut from = 0;
-            while let Some(to) = buf[from..].iter().position(|b| *b == b'\n') {
-                let line_str = String::from_utf8_lossy(&buf[from..from+to+1]);
+            while let Some(to) = memchr(b'\n', &buf[from..]) {
+                // note, this won't allocate a new String if valid UTF-8
+                let line_str = String::from_utf8_lossy(&buf[from..from+to]);
                 if !self.process(&line_str) {
                     // false return value means "quit"
                     break 'outer;
                 }
                 from += to + 1;
             }
-            buf.drain(0..from);
+            buf.drain(..from);
         }
         let _ = self.upd_q.send(UpdaterMsg::RemoveUpdater(self.addr));
         info!("[{}] handler is finished", self.name);

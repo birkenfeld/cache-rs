@@ -46,8 +46,8 @@ lazy_static! {
 /// An algebraic data type that represents any message (line) that can be sent
 /// over the network in the cache protocol.
 ///
-/// String entries here are Cow<str> because that way we can reuse slices from
-/// the original string coming from the network.
+/// String entries here are borrowed because we just reuse slices from the
+/// original string coming from the network.
 #[derive(Debug)]
 pub enum CacheMsg<'a> {
     /// quit a.k.a. empty line
