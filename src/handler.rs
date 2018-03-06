@@ -41,8 +41,8 @@ use server::{ClientAddr, Client, RECVBUF_LEN};
 pub struct Updater {
     pub addr: ClientAddr,
     client:   Box<Client>,
-    subs:     Vec<String>,
-    with_ts:  bool,
+    subs:     [Vec<String>; 2],
+    tsindex:  usize,
     searcher: AcAutomaton<String>,
 }
 
@@ -68,29 +68,35 @@ pub struct Handler {
 
 impl Updater {
     pub fn new(client: Box<Client>, addr: ClientAddr) -> Updater {
-        Updater { addr, client, subs: vec![], with_ts: false,
+        Updater { addr, client, subs: [vec![], vec![]], tsindex: 0,
                   searcher: AcAutomaton::new(vec![]) }
     }
 
     /// Add a new subscription for this client.
     pub fn add_subscription(&mut self, key: String, with_ts: bool) {
-        self.subs.push(key);
-        self.with_ts |= with_ts;
-        self.searcher = AcAutomaton::new(self.subs.clone());
+        self.subs[with_ts as usize].push(key);
+        self.subs_updated();
     }
 
     /// Remove a subscription for this client.
-    pub fn remove_subscription(&mut self, key: String, _with_ts: bool) {
-        self.subs.retain(|substr| substr != &key);
-        self.with_ts = !self.subs.is_empty();
-        self.searcher = AcAutomaton::new(self.subs.clone());
+    pub fn remove_subscription(&mut self, key: String, with_ts: bool) {
+        self.subs[with_ts as usize].retain(|substr| substr != &key);
+        self.subs_updated();
+    }
+
+    /// Rebuild the Aho-Corasick automaton used to match keys.
+    fn subs_updated(&mut self) {
+        self.tsindex = self.subs[0].len();
+        self.searcher = AcAutomaton::new(self.subs[0].iter().chain(&self.subs[1]).cloned());
     }
 
     /// Update this client, if the key is matched by one of the subscriptions.
     pub fn update(&self, entry: &mut UpdaterEntry) {
-        if !self.subs.is_empty() && self.searcher.find(entry.key()).next().is_some() {
-            debug!("[{}] update: {:?} | {:?}", self.addr, entry, self.subs);
-            let _ = self.client.write(entry.get_msg(self.with_ts).as_bytes());
+        if !self.subs.is_empty() {
+            if let Some(m) = self.searcher.find(entry.key()).next() {
+                debug!("[{}] update: {:?} | {:?}", self.addr, entry, self.subs);
+                let _ = self.client.write(entry.get_msg(m.pati >= self.tsindex).as_bytes());
+            }
         }
     }
 }
