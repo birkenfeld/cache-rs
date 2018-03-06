@@ -157,13 +157,8 @@ impl database::Store for Store {
             all_days(from, to)
         };
         for path in paths {
-            match self.read_history(&path, catname, subkey) {
-                Err(e)   => warn!("could not read histfile for {}/{}: {}", path, catname, e),
-                Ok(msgs) => for (time, val) in msgs {
-                    if from <= time && time <= to {
-                        send(time, &val);
-                    }
-                },
+            if let Err(e) = self.read_history(&path, catname, subkey, from, to, send) {
+                warn!("could not read histfile for {}/{}: {}", path, catname, e);
             }
         }
     }
@@ -244,22 +239,22 @@ impl Store {
     }
 
     /// Read history for a given subkey from a file.
-    fn read_history(&self, path: &str, catname: &str, subkey: &str)
-                    -> io::Result<Vec<(f64, String)>> {
+    fn read_history(&self, path: &str, catname: &str, subkey: &str, from: f64, to: f64,
+                    send: &mut FnMut(f64, &str)) -> io::Result<()> {
         let catname = catname.replace('/', "-");
         let path = self.storepath.join(path).join(catname);
-        let mut res = Vec::new();
-        if !path.is_file() {
-            return Ok(res)
+        if path.is_file() {
+            let fp = open_file(path, "r")?;
+            Self::read_storefile(fp, |parts| {
+                if parts[0] == subkey {
+                    let time = parts[1].parse().unwrap_or(0.);
+                    if from <= time && time <= to {
+                        send(time, if parts[3] == "-" { "" } else { parts[3] });
+                    }
+                }
+            });
         }
-        let fp = open_file(path, "r")?;
-        Self::read_storefile(fp, |parts| {
-            if parts[0] == subkey {
-                let val = if parts[3] == "-" { "" } else { parts[3] };
-                res.push((parts[1].parse().unwrap_or(0.), val.into()));
-            }
-        });
-        Ok(res)
+        Ok(())
     }
 
     /// Read a store file and call the closure for each entry.
