@@ -1,6 +1,6 @@
 [package]
 name = "cache-rs"
-version = "1.0.3"
+version = "1.0.4"
 authors = ["Georg Brandl <georg@python.org>"]
 
 [profile.release]
