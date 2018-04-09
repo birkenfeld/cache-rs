@@ -29,14 +29,14 @@ extern crate log;
 extern crate mlzlog;
 extern crate time;
 extern crate fnv;
-#[macro_use]
-extern crate clap;
 extern crate regex;
 extern crate memchr;
 extern crate mlzutil;
-extern crate aho_corasick;
+#[macro_use]
+extern crate structopt;
 #[macro_use]
 extern crate lazy_static;
+extern crate aho_corasick;
 extern crate parking_lot;
 extern crate daemonize;
 extern crate chan_signal;
@@ -53,47 +53,58 @@ mod handler;
 mod message;
 mod server;
 
+use std::path::PathBuf;
+use structopt::{StructOpt, clap};
+
+#[derive(StructOpt)]
+#[structopt(author = "")]
+#[structopt(about = "A Rust implementation of the NICOS cache.")]
+#[structopt(raw(setting = "clap::AppSettings::UnifiedHelpMessage"))]
+#[structopt(raw(setting = "clap::AppSettings::DeriveDisplayOrder"))]
+struct Options {
+    #[structopt(long="bind", default_value="127.0.0.1:14869", help="Bind address (host:port)")]
+    bind_addr: String,
+    #[structopt(long="store", default_value="data", help="Store path or URI")]
+    store_path: String,
+    #[structopt(long="log", default_value="log", help="Logging path")]
+    log_path: PathBuf,
+    #[structopt(long="pid", default_value="pid", help="PID path")]
+    pid_path: PathBuf,
+    #[structopt(short="v", help="Debug logging output?")]
+    verbose: bool,
+    #[structopt(long="clear", help="Clear the database on startup?")]
+    clear: bool,
+    #[structopt(short="d", help="Daemonize?")]
+    daemonize: bool,
+    #[structopt(long="user", help="User name for daemon")]
+    user: Option<String>,
+    #[structopt(long="group", help="Group name for daemon")]
+    group: Option<String>,
+    #[structopt(raw(hidden="true"))]
+    _dummy: Option<String>,
+}
 
 fn main() {
-    let args = clap_app!(("cache-rs") =>
-        (version: crate_version!())
-        (author: "")
-        (about: "A Rust implementation of the NICOS cache.")
-        (@setting DeriveDisplayOrder)
-        (@setting UnifiedHelpMessage)
-        (@arg verbose: -v "Debug logging output?")
-        (@arg bind: --bind [ADDR] default_value("127.0.0.1:14869") "Bind address (host:port)")
-        (@arg store: --store [STOREPATH] default_value("data") "Store path or URI")
-        (@arg log: --log [LOGPATH] default_value("log") "Logging path")
-        (@arg pid: --pid [PIDPATH] default_value("pid") "PID path")
-        (@arg daemon: -d "Daemonize?")
-        (@arg user: --user [USER] "User name for daemon")
-        (@arg group: --group [GROUP] "Group name for daemon")
-        (@arg clear: --clear "Clear the database on startup?")
-        (@arg dummy: +hidden)
-    ).get_matches();
-
-    let log_path = mlzutil::fs::abspath(args.value_of("log").expect(""));
-    let pid_path = mlzutil::fs::abspath(args.value_of("pid").expect(""));
-    if args.is_present("daemon") {
+    let args = Options::from_args();
+    let log_path = mlzutil::fs::abspath(args.log_path);
+    let pid_path = mlzutil::fs::abspath(args.pid_path);
+    if args.daemonize {
         let mut daemon = daemonize::Daemonize::new();
-        if let Some(user) = args.value_of("user") {
-            daemon = daemon.user(user);
+        if let Some(user) = args.user {
+            daemon = daemon.user(&*user);
         }
-        if let Some(group) = args.value_of("group") {
-            daemon = daemon.group(group);
+        if let Some(group) = args.group {
+            daemon = daemon.group(&*group);
         }
         if let Err(err) = daemon.start() {
             eprintln!("could not daemonize process: {}", err);
         }
     }
     if let Err(err) = mlzlog::init(Some(log_path), "cache_rs", false,
-                                   args.is_present("verbose"),
-                                   !args.is_present("daemon")) {
+                                   args.verbose, !args.daemonize) {
         eprintln!("could not initialize logging: {}", err);
     }
-    let store_path = server::StorePath::parse(args.value_of("store")
-                                              .expect("")).unwrap_or_else(|err| {
+    let store_path = server::StorePath::parse(&args.store_path).unwrap_or_else(|err| {
         error!("invalid store path: {}", err);
         std::process::exit(1);
     });
@@ -105,11 +116,10 @@ fn main() {
     let signal_chan = chan_signal::notify(&[chan_signal::Signal::INT,
                                             chan_signal::Signal::TERM]);
 
-    let server = server::Server::new(store_path, args.is_present("clear"))
+    let server = server::Server::new(store_path, args.clear)
         .unwrap_or_else(|_| std::process::exit(1));
-    let bind_addr = args.value_of("bind").expect("");
-    info!("starting server on {}...", bind_addr);
-    if let Err(err) = server.start(bind_addr) {
+    info!("starting server on {}...", args.bind_addr);
+    if let Err(err) = server.start(&args.bind_addr) {
         error!("could not initialize server: {}", err);
     }
 
