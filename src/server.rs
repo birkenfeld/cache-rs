@@ -31,13 +31,13 @@ use std::thread;
 use std::time::Duration;
 use parking_lot::Mutex;
 use crossbeam_channel::{unbounded, Sender, Receiver};
+use mlzutil::fs::abspath;
 
 use handler::{Updater, Handler, UpdaterMsg};
 use database::{ThreadsafeDB, DB, Store};
 use store_flat::Store as FlatStore;
 #[cfg(feature = "postgres")]
 use store_pgsql::Store as PgSqlStore;
-use util::abspath;
 
 pub const RECVBUF_LEN: usize = 4096;
 

@@ -33,6 +33,7 @@ extern crate fnv;
 extern crate clap;
 extern crate regex;
 extern crate memchr;
+extern crate mlzutil;
 extern crate aho_corasick;
 #[macro_use]
 extern crate lazy_static;
@@ -51,7 +52,6 @@ mod store_pgsql;
 mod handler;
 mod message;
 mod server;
-mod util;
 
 
 fn main() {
@@ -73,8 +73,8 @@ fn main() {
         (@arg dummy: +hidden)
     ).get_matches();
 
-    let log_path = util::abspath(args.value_of("log").expect(""));
-    let pid_path = util::abspath(args.value_of("pid").expect(""));
+    let log_path = mlzutil::fs::abspath(args.value_of("log").expect(""));
+    let pid_path = mlzutil::fs::abspath(args.value_of("pid").expect(""));
     if args.is_present("daemon") {
         let mut daemon = daemonize::Daemonize::new();
         if let Some(user) = args.value_of("user") {
@@ -97,7 +97,7 @@ fn main() {
         error!("invalid store path: {}", err);
         std::process::exit(1);
     });
-    if let Err(err) = util::write_pidfile(&pid_path) {
+    if let Err(err) = mlzutil::fs::write_pidfile(&pid_path, "cache_rs") {
         error!("could not write PID file: {}", err);
     }
 
@@ -116,5 +116,5 @@ fn main() {
     // wait for a signal to finish
     signal_chan.recv().unwrap();
     info!("quitting...");
-    util::remove_pidfile(pid_path);
+    mlzutil::fs::remove_pidfile(pid_path, "cache_rs");
 }

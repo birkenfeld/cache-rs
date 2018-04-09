@@ -29,10 +29,10 @@ use std::sync::Arc;
 use fnv::FnvHashMap as HashMap;
 use parking_lot::Mutex;
 use crossbeam_channel::Sender;
+use mlzutil::time::localtime;
 
 use entry::{Entry, UpdaterEntry, BATCHSIZE, split_key, construct_key};
 use handler::UpdaterMsg;
-use util::localtime;
 use server::ClientAddr;
 use message::CacheMsg::{TellTS, LockRes};
 

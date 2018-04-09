@@ -24,8 +24,7 @@
 //! to parse and string-format it.
 
 use regex::Regex;
-
-use util::localtime;
+use mlzutil::time::localtime;
 
 
 lazy_static! {

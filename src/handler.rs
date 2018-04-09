@@ -26,12 +26,12 @@ use std::thread;
 use memchr::memchr;
 use aho_corasick::{Automaton, AcAutomaton};
 use crossbeam_channel::{unbounded, Sender, Receiver};
+use mlzutil::time::localtime;
 
 use entry::UpdaterEntry;
 use database::ThreadsafeDB;
 use message::CacheMsg;
 use message::CacheMsg::*;
-use util::localtime;
 use server::{ClientAddr, Client, RECVBUF_LEN};
 
 

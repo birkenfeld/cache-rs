@@ -23,16 +23,34 @@
 //! Flat-file database store.
 
 use std::mem;
-use std::fs::{File, read_dir, remove_file, hard_link, remove_dir_all};
+use std::fs::{File, OpenOptions, read_dir, remove_file, hard_link, remove_dir_all};
 use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use fnv::FnvHashMap as HashMap;
-use time::{now, Tm, Duration};
+use time::{self, Tm, Duration};
+use mlzutil::fs::ensure_dir;
+use mlzutil::time::{to_timespec, to_timefloat};
 
 use database::{self, EntryMap};
 use entry::{Entry, split_key};
-use util::{ensure_dir, to_timefloat, day_path, all_days, open_file};
+
+/// Get the store subdir for a certain day.
+pub fn day_path(day: time::Tm) -> String {
+    format!("{:04}/{:02}-{:02}", 1900 + day.tm_year, 1 + day.tm_mon, day.tm_mday)
+}
+
+/// Get all days between two timestamps.
+pub fn all_days(from: f64, to: f64) -> Vec<String> {
+    let mut res = Vec::new();
+    let to = to_timespec(to);
+    let mut tm = time::at(to_timespec(from));
+    while tm.to_timespec() < to {
+        res.push(day_path(tm));
+        tm = tm + time::Duration::days(1);
+    }
+    res
+}
 
 impl Entry {
     /// Write the Entry to a store file.
@@ -58,7 +76,7 @@ pub struct Store {
 
 impl Store {
     pub fn new(storepath: PathBuf) -> Store {
-        let thisday = Tm { tm_hour: 0, tm_min: 0, tm_sec: 0, tm_nsec: 0, ..now() };
+        let thisday = Tm { tm_hour: 0, tm_min: 0, tm_sec: 0, tm_nsec: 0, ..time::now() };
         Store {
             storepath,
             files: HashMap::default(),
@@ -167,7 +185,7 @@ impl database::Store for Store {
 impl Store {
     /// Load keys from a single file for category "catname".
     fn load_one_file(&self, filename: &Path) -> io::Result<HashMap<String, Entry>> {
-        let fp = open_file(filename, "r")?;
+        let fp = File::open(filename)?;
         let mut map = HashMap::default();
         Self::read_storefile(fp, |parts| {
             let subkey = parts[0];
@@ -201,7 +219,7 @@ impl Store {
     /// Roll over all store files after midnight has passed.
     fn rollover(&mut self, entry_map: &mut EntryMap) -> io::Result<()> {
         info!("midnight passed, rolling over data files...");
-        let thisday = Tm { tm_hour: 0, tm_min: 0, tm_sec: 0, tm_nsec: 0, ..now() };
+        let thisday = Tm { tm_hour: 0, tm_min: 0, tm_sec: 0, tm_nsec: 0, ..time::now() };
         self.midnights = (to_timefloat(thisday),
                           to_timefloat(thisday + Duration::days(1)));
         self.ymd_path = day_path(thisday);
@@ -227,7 +245,7 @@ impl Store {
         let linkfile = self.storepath.join(&safe_catname).join(&self.ymd_path);
         ensure_dir(&subpath)?;
         let file = subpath.join(safe_catname);
-        let mut fp = open_file(&file, "wa")?;
+        let mut fp = OpenOptions::new().create(true).append(true).open(&file)?;
         if fp.seek(SeekFrom::Current(0))? == 0 {
             fp.write_all(b"# NICOS cache store file v2\n")?;
         }
@@ -244,7 +262,7 @@ impl Store {
         let catname = catname.replace('/', "-");
         let path = self.storepath.join(path).join(catname);
         if path.is_file() {
-            let fp = open_file(path, "r")?;
+            let fp = File::open(path)?;
             Self::read_storefile(fp, |parts| {
                 if parts[0] == subkey {
                     let time = parts[1].parse().unwrap_or(0.);
