@@ -32,11 +32,11 @@ use entry::{Entry, split_key, construct_key};
 /// Represents the Postgres backend store.
 pub struct Store {
     /// Postgres connection.
-    connection:   Connection,
+    connection: Connection,
 }
 
 impl Store {
-    pub fn new(url: &str) -> Result<Store, postgres::error::ConnectError> {
+    pub fn new(url: &str) -> Result<Store, postgres::error::Error> {
         Ok(Store { connection: Connection::connect(url, TlsMode::None)? })
     }
 }
