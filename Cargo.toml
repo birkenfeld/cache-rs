@@ -9,7 +9,7 @@ lto = true
 [dependencies]
 log = "*"
 time = "*"
-fnv = "*"
+fxhash = "*"
 mlzlog = "*"
 regex = "*"
 memchr = "*"

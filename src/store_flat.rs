@@ -27,7 +27,7 @@ use std::fs::{File, OpenOptions, read_dir, remove_file, hard_link, remove_dir_al
 use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
-use fnv::FnvHashMap as HashMap;
+use fxhash::FxHashMap as HashMap;
 use time::{self, Tm, Duration};
 use mlzutil::fs::ensure_dir;
 use mlzutil::time::{to_timespec, to_timefloat};

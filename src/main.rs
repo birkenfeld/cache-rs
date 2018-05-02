@@ -28,7 +28,7 @@
 extern crate log;
 extern crate mlzlog;
 extern crate time;
-extern crate fnv;
+extern crate fxhash;
 extern crate regex;
 extern crate memchr;
 extern crate mlzutil;

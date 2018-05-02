@@ -26,7 +26,7 @@ use std::io;
 use std::collections::HashSet;
 use std::collections::hash_map::Entry as HEntry;
 use std::sync::Arc;
-use fnv::FnvHashMap as HashMap;
+use fxhash::FxHashMap as HashMap;
 use parking_lot::Mutex;
 use crossbeam_channel::Sender;
 use mlzutil::time::localtime;
