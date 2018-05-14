@@ -53,7 +53,6 @@ mod handler;
 mod message;
 mod server;
 
-use std::path::PathBuf;
 use structopt::{StructOpt, clap};
 
 #[derive(StructOpt)]
@@ -67,9 +66,9 @@ struct Options {
     #[structopt(long="store", default_value="data", help="Store path or URI")]
     store_path: String,
     #[structopt(long="log", default_value="log", help="Logging path")]
-    log_path: PathBuf,
+    log_path: String,
     #[structopt(long="pid", default_value="pid", help="PID path")]
-    pid_path: PathBuf,
+    pid_path: String,
     #[structopt(short="v", help="Debug logging output?")]
     verbose: bool,
     #[structopt(long="clear", help="Clear the database on startup?")]
