@@ -121,7 +121,7 @@ impl Handler {
 
     /// Thread that sends back replies (but not updates) to the client.
     fn sender(name: &str, client: Box<Client>, r_msgs: Receiver<String>) {
-        for to_send in r_msgs.iter() {
+        for to_send in r_msgs {
             if let Err(err) = client.write(to_send.as_bytes()) {
                 warn!("[{}] write error in sender: {}", name, err);
                 break;

@@ -212,7 +212,7 @@ impl Server {
     fn updater(chan: Receiver<UpdaterMsg>) {
         info!("updater started");
         let mut updaters: Vec<Updater> = Vec::with_capacity(8);
-        for item in chan.iter() {
+        for item in chan {
             match item {
                 UpdaterMsg::Update(mut entry, source) => {
                     for upd in &updaters {
