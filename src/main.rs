@@ -26,6 +26,7 @@
 
 #[macro_use]
 extern crate log;
+extern crate libc;
 extern crate mlzlog;
 extern crate time;
 extern crate fxhash;
@@ -39,7 +40,7 @@ extern crate lazy_static;
 extern crate aho_corasick;
 extern crate parking_lot;
 extern crate daemonize;
-extern crate chan_signal;
+extern crate signal_hook;
 extern crate crossbeam_channel;
 #[cfg(feature = "postgres")]
 extern crate postgres;
@@ -54,6 +55,7 @@ mod message;
 mod server;
 
 use structopt::{StructOpt, clap};
+use signal_hook::iterator::Signals;
 
 #[derive(StructOpt)]
 #[structopt(author = "")]
@@ -111,10 +113,6 @@ fn main() {
         error!("could not write PID file: {}", err);
     }
 
-    // handle SIGINT and SIGTERM
-    let signal_chan = chan_signal::notify(&[chan_signal::Signal::INT,
-                                            chan_signal::Signal::TERM]);
-
     let server = server::Server::new(store_path, args.clear)
         .unwrap_or_else(|_| std::process::exit(1));
     info!("starting server on {}...", args.bind_addr);
@@ -123,7 +121,7 @@ fn main() {
     }
 
     // wait for a signal to finish
-    signal_chan.recv().unwrap();
+    Signals::new(&[libc::SIGINT, libc::SIGTERM]).unwrap().wait();
     info!("quitting...");
     mlzutil::fs::remove_pidfile(pid_path, "cache_rs");
 }

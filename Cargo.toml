@@ -9,6 +9,7 @@ lto = true
 [dependencies]
 log = "*"
 time = "*"
+libc = "*"
 fxhash = "*"
 mlzlog = "*"
 regex = "*"
@@ -16,9 +17,9 @@ memchr = "*"
 mlzutil = "*"
 structopt = "*"
 aho-corasick = "*"
+signal-hook = "*"
 lazy_static = "*"
 parking_lot = "*"
-chan-signal = "*"
 daemonize = "*"
 crossbeam-channel = "*"
 postgres = { version = "*", optional = true }
