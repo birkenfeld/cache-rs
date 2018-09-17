@@ -33,7 +33,6 @@ extern crate fxhash;
 extern crate regex;
 extern crate memchr;
 extern crate mlzutil;
-#[macro_use]
 extern crate structopt;
 #[macro_use]
 extern crate lazy_static;
