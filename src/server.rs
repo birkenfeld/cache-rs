@@ -29,15 +29,16 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+use log::*;
 use parking_lot::Mutex;
 use crossbeam_channel::{unbounded, Sender, Receiver};
 use mlzutil::fs::abspath;
 
-use handler::{Updater, Handler, UpdaterMsg};
-use database::{ThreadsafeDB, DB, Store};
-use store_flat::Store as FlatStore;
+use crate::handler::{Updater, Handler, UpdaterMsg};
+use crate::database::{ThreadsafeDB, DB, Store};
+use crate::store_flat::Store as FlatStore;
 #[cfg(feature = "postgres")]
-use store_pgsql::Store as PgSqlStore;
+use crate::store_pgsql::Store as PgSqlStore;
 
 pub const RECVBUF_LEN: usize = 4096;
 
@@ -68,8 +69,8 @@ impl StorePath {
 /// A trait abstracting our notion of a client -- could be TCP or UDP sockets in
 /// the IP or Unix domain.
 pub trait Client : Send {
-    fn read(&mut self, &mut [u8]) -> io::Result<usize>;
-    fn write(&self, &[u8]) -> io::Result<()>;
+    fn read(&mut self, _: &mut [u8]) -> io::Result<usize>;
+    fn write(&self, _: &[u8]) -> io::Result<()>;
     fn try_clone(&self) -> io::Result<Box<Client>>;
     fn close(&mut self);
     fn get_addr(&self) -> ClientAddr;

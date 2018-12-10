@@ -24,8 +24,8 @@
 
 use std::fmt;
 
-use message::CacheMsg;
-use message::CacheMsg::{Tell, TellOld, TellTS, TellOldTS};
+use crate::message::CacheMsg;
+use crate::message::CacheMsg::{Tell, TellOld, TellTS, TellOldTS};
 
 /// Number of entries to send back in one batch.
 pub const BATCHSIZE: usize = 100;

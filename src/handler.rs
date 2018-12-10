@@ -23,16 +23,17 @@
 //! This module contains the handler for a single network connection.
 
 use std::thread;
+use log::*;
 use memchr::memchr;
 use aho_corasick::{Automaton, AcAutomaton};
 use crossbeam_channel::{unbounded, Sender, Receiver};
 use mlzutil::time::localtime;
 
-use entry::UpdaterEntry;
-use database::ThreadsafeDB;
-use message::CacheMsg;
-use message::CacheMsg::*;
-use server::{ClientAddr, Client, RECVBUF_LEN};
+use crate::entry::UpdaterEntry;
+use crate::database::ThreadsafeDB;
+use crate::message::CacheMsg;
+use crate::message::CacheMsg::*;
+use crate::server::{ClientAddr, Client, RECVBUF_LEN};
 
 
 /// Provides functionality to send key updates to the the connected client.

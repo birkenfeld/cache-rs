@@ -27,13 +27,14 @@ use std::fs::{File, OpenOptions, read_dir, remove_file, hard_link, remove_dir_al
 use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
+use log::*;
 use fxhash::FxHashMap as HashMap;
 use time::{self, Tm, Duration};
 use mlzutil::fs::ensure_dir;
 use mlzutil::time::{to_timespec, to_timefloat};
 
-use database::{self, EntryMap};
-use entry::{Entry, split_key};
+use crate::database::{self, EntryMap};
+use crate::entry::{Entry, split_key};
 
 /// Get the store subdir for a certain day.
 pub fn day_path(day: time::Tm) -> String {

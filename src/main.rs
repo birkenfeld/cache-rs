@@ -22,28 +22,6 @@
 //
 //! The main entry point and crate definitions.
 
-#![feature(nll)]
-
-#[macro_use]
-extern crate log;
-extern crate libc;
-extern crate mlzlog;
-extern crate time;
-extern crate fxhash;
-extern crate regex;
-extern crate memchr;
-extern crate mlzutil;
-extern crate structopt;
-#[macro_use]
-extern crate lazy_static;
-extern crate aho_corasick;
-extern crate parking_lot;
-extern crate daemonize;
-extern crate signal_hook;
-extern crate crossbeam_channel;
-#[cfg(feature = "postgres")]
-extern crate postgres;
-
 mod entry;
 mod database;
 mod store_flat;
@@ -53,6 +31,7 @@ mod handler;
 mod message;
 mod server;
 
+use log::*;
 use structopt::{StructOpt, clap};
 use signal_hook::iterator::Signals;
 

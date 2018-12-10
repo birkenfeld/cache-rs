@@ -2,6 +2,7 @@
 name = "cache-rs"
 version = "1.0.4"
 authors = ["Georg Brandl <georg@python.org>"]
+edition = "2018"
 
 [profile.release]
 lto = true

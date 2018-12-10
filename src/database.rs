@@ -26,15 +26,16 @@ use std::io;
 use std::collections::HashSet;
 use std::collections::hash_map::Entry as HEntry;
 use std::sync::Arc;
+use log::*;
 use fxhash::FxHashMap as HashMap;
 use parking_lot::Mutex;
 use crossbeam_channel::Sender;
 use mlzutil::time::localtime;
 
-use entry::{Entry, UpdaterEntry, BATCHSIZE, split_key, construct_key};
-use handler::UpdaterMsg;
-use server::ClientAddr;
-use message::CacheMsg::{TellTS, LockRes};
+use crate::entry::{Entry, UpdaterEntry, BATCHSIZE, split_key, construct_key};
+use crate::handler::UpdaterMsg;
+use crate::server::ClientAddr;
+use crate::message::CacheMsg::{TellTS, LockRes};
 
 pub type EntryMap = HashMap<String, HashMap<String, Entry>>;
 
