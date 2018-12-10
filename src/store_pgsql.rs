@@ -23,11 +23,12 @@
 //! PostgreSQL-backed database store.
 
 use std::io;
-use fnv::FnvHashMap as HashMap;
+use log::*;
+use hashbrown::HashMap;
 use postgres::{self, Connection, TlsMode};
 
-use database::{self, EntryMap};
-use entry::{Entry, split_key, construct_key};
+use crate::database::{self, EntryMap};
+use crate::entry::{Entry, split_key, construct_key};
 
 /// Represents the Postgres backend store.
 pub struct Store {
