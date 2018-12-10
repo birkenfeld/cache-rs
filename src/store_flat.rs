@@ -28,8 +28,8 @@ use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use log::*;
-use fxhash::FxHashMap as HashMap;
 use time::{self, Tm, Duration};
+use hashbrown::HashMap;
 use mlzutil::fs::ensure_dir;
 use mlzutil::time::{to_timespec, to_timefloat};
 

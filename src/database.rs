@@ -23,11 +23,9 @@
 //! This module contains the definition for the in-memory and on-disk database.
 
 use std::io;
-use std::collections::HashSet;
-use std::collections::hash_map::Entry as HEntry;
 use std::sync::Arc;
 use log::*;
-use fxhash::FxHashMap as HashMap;
+use hashbrown::{HashSet, HashMap, hash_map::Entry as HEntry};
 use parking_lot::Mutex;
 use crossbeam_channel::Sender;
 use mlzutil::time::localtime;
