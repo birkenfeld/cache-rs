@@ -25,7 +25,7 @@
 use std::thread;
 use log::*;
 use memchr::memchr;
-use aho_corasick::{Automaton, AcAutomaton};
+use aho_corasick::AhoCorasick;
 use crossbeam_channel::{unbounded, Sender, Receiver};
 use mlzutil::time::localtime;
 
@@ -45,7 +45,7 @@ pub struct Updater {
     client:   Box<Client>,
     subs:     [Vec<String>; 2],
     tsindex:  usize,
-    searcher: AcAutomaton<String>,
+    searcher: AhoCorasick,
 }
 
 /// These objects are sent to the updater thread from the DB and handlers.
@@ -71,7 +71,7 @@ pub struct Handler {
 impl Updater {
     pub fn new(client: Box<Client>, addr: ClientAddr) -> Updater {
         Updater { addr, client, subs: [vec![], vec![]], tsindex: 0,
-                  searcher: AcAutomaton::new(vec![]) }
+                  searcher: AhoCorasick::new(Vec::<String>::new()) }
     }
 
     /// Add a new subscription for this client.
@@ -89,16 +89,14 @@ impl Updater {
     /// Rebuild the Aho-Corasick automaton used to match keys.
     fn subs_updated(&mut self) {
         self.tsindex = self.subs[0].len();
-        self.searcher = AcAutomaton::new(self.subs[0].iter().chain(&self.subs[1]).cloned());
+        self.searcher = AhoCorasick::new(self.subs[0].iter().chain(&self.subs[1]).cloned());
     }
 
     /// Update this client, if the key is matched by one of the subscriptions.
     pub fn update(&self, entry: &mut UpdaterEntry) {
-        if !self.subs.is_empty() {
-            if let Some(m) = self.searcher.find(entry.key()).next() {
-                debug!("[{}] update: {:?} | {:?}", self.addr, entry, self.subs);
-                let _ = self.client.write(entry.get_msg(m.pati >= self.tsindex).as_bytes());
-            }
+        if let Some(m) = self.searcher.find(entry.key()) {
+            debug!("[{}] update: {:?} | {:?}", self.addr, entry, self.subs);
+            let _ = self.client.write(entry.get_msg(m.pattern() >= self.tsindex).as_bytes());
         }
     }
 }
