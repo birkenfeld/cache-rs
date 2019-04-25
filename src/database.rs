@@ -24,8 +24,8 @@
 
 use std::io;
 use std::sync::Arc;
+use std::collections::{HashSet, HashMap, hash_map::Entry as HEntry};
 use log::*;
-use hashbrown::{HashSet, HashMap, hash_map::Entry as HEntry};
 use parking_lot::Mutex;
 use crossbeam_channel::Sender;
 use mlzutil::time::localtime;

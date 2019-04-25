@@ -23,8 +23,8 @@
 //! PostgreSQL-backed database store.
 
 use std::io;
+use std::collections::HashMap;
 use log::*;
-use hashbrown::HashMap;
 use postgres::{self, Connection, TlsMode};
 
 use crate::database::{self, EntryMap};
