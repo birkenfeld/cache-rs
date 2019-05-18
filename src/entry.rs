@@ -91,9 +91,9 @@ impl Entry {
     }
 }
 
-#[inline]
 /// Helper function to split a full key into (catname, subkey), with the correct
 /// handling of empty categories.
+#[inline]
 pub fn split_key(key: &str) -> (&str, &str) {
     if let Some(i) = key.rfind('/') {
         return (&key[..i], &key[i+1..]);
@@ -102,8 +102,8 @@ pub fn split_key(key: &str) -> (&str, &str) {
     }
 }
 
-#[inline]
 /// Helper function to construct a full key from catname and subkey.
+#[inline]
 pub fn construct_key(catname: &str, subkey: &str) -> String {
     format!("{}{}{}",
             if catname == "nocat" { "" } else { catname },
@@ -133,11 +133,9 @@ impl UpdaterEntry {
 
     /// Get the interpolated message, use the cache if possible.
     pub fn get_msg(&mut self, with_ts: bool) -> &str {
-        let cached = if with_ts { &mut self.cache.0 } else { &mut self.cache.1 };
-        if cached.is_none() {
-            *cached = Some(self.val.to_msg(&self.key, with_ts).to_string());
-        }
-        cached.as_ref().unwrap()
+        let UpdaterEntry { key, val, cache } = self;
+        let cached = if with_ts { &mut cache.0 } else { &mut cache.1 };
+        cached.get_or_insert_with(|| val.to_msg(key, with_ts).to_string())
     }
 }
 
