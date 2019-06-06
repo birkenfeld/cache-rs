@@ -28,7 +28,7 @@ use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
-use log::*;
+use log::{info, warn};
 use time::{self, Tm, Duration};
 use mlzutil::fs::ensure_dir;
 use mlzutil::time::{to_timespec, to_timefloat};
@@ -168,7 +168,7 @@ impl database::Store for Store {
     }
 
     /// Send history of a key to client.
-    fn query_history(&mut self, key: &str, from: f64, to: f64, send: &mut FnMut(f64, &str)) {
+    fn query_history(&mut self, key: &str, from: f64, to: f64, send: &mut dyn FnMut(f64, &str)) {
         let (catname, subkey) = split_key(key);
         let paths = if from >= self.midnights.0 {
             vec![self.ymd_path.clone()]
@@ -259,7 +259,7 @@ impl Store {
 
     /// Read history for a given subkey from a file.
     fn read_history(&self, path: &str, catname: &str, subkey: &str, from: f64, to: f64,
-                    send: &mut FnMut(f64, &str)) -> io::Result<()> {
+                    send: &mut dyn FnMut(f64, &str)) -> io::Result<()> {
         let catname = catname.replace('/', "-");
         let path = self.storepath.join(path).join(catname);
         if path.is_file() {

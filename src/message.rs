@@ -24,12 +24,10 @@
 //! to parse and string-format it.
 
 use regex::Regex;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use mlzutil::time::localtime;
 
-
-lazy_static! {
-    static ref MSG_RE: Regex = Regex::new(r#"(?x)
+static MSG_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"(?x)
     ^ (?:
       \s* (?P<time>\d+\.?\d*)?                 # timestamp
       \s* (?P<ttlop>[+-]?)                     # ttl operator
@@ -40,8 +38,7 @@ lazy_static! {
     \s* (?P<op>[=!?:|*$~])                     # operator
     \s* (?P<value>[^\r\n]*?)                   # value
     \s* $
-    "#).unwrap();
-}
+    "#).unwrap());
 
 /// An algebraic data type that represents any message (line) that can be sent
 /// over the network in the cache protocol.

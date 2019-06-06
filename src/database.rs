@@ -25,7 +25,7 @@
 use std::io;
 use std::sync::Arc;
 use std::collections::{HashSet, HashMap, hash_map::Entry as HEntry};
-use log::*;
+use log::{info, debug};
 use parking_lot::Mutex;
 use crossbeam_channel::Sender;
 use mlzutil::time::localtime;
@@ -45,7 +45,7 @@ pub type EntryMap = HashMap<String, HashMap<String, Entry>>;
 /// a trait and pluggable.
 pub struct DB {
     /// Store backend (dynamically dispatched).
-    store:        Box<Store>,
+    store:        Box<dyn Store>,
     /// Map of keys, first by categories (key prefixes) then by subkey.
     entry_map:    EntryMap,
     /// Map of lock entries.
@@ -70,12 +70,12 @@ pub trait Store : Send {
     /// Save a new entry to the store.
     fn save(&mut self, catname: &str, subkey: &str, entry: &Entry) -> io::Result<()>;
     /// Query history of entries for a specified key to given client.
-    fn query_history(&mut self, key: &str, from: f64, to: f64, send: &mut FnMut(f64, &str));
+    fn query_history(&mut self, key: &str, from: f64, to: f64, send: &mut dyn FnMut(f64, &str));
 }
 
 impl DB {
     /// Create a new empty database.
-    pub fn new(store: Box<Store>, upd_q: Sender<UpdaterMsg>) -> DB {
+    pub fn new(store: Box<dyn Store>, upd_q: Sender<UpdaterMsg>) -> DB {
         DB {
             store,
             upd_q,

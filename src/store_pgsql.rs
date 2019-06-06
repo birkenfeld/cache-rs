@@ -24,7 +24,7 @@
 
 use std::io;
 use std::collections::HashMap;
-use log::*;
+use log::info;
 use postgres::{self, Connection, TlsMode};
 
 use crate::database::{self, EntryMap};
@@ -92,7 +92,7 @@ impl database::Store for Store {
     }
 
     /// Send history to client.
-    fn query_history(&mut self, key: &str, from: f64, to: f64, send: &mut FnMut(f64, &str)) {
+    fn query_history(&mut self, key: &str, from: f64, to: f64, send: &mut dyn FnMut(f64, &str)) {
         let query = "SELECT values.key, values.value, values.time FROM values \
                        WHERE key = $1 AND time >= $2 AND time <= $3 ORDER BY time;";
         if let Ok(result) = self.connection.query(query, &[&key, &from, &to]) {

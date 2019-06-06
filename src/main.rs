@@ -31,7 +31,7 @@ mod handler;
 mod message;
 mod server;
 
-use log::*;
+use log::{info, error};
 use structopt::{StructOpt, clap};
 use signal_hook::iterator::Signals;
 

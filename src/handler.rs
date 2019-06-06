@@ -23,7 +23,7 @@
 //! This module contains the handler for a single network connection.
 
 use std::thread;
-use log::*;
+use log::{info, warn, debug};
 use memchr::memchr;
 use aho_corasick::AhoCorasick;
 use crossbeam_channel::{unbounded, Sender, Receiver};
@@ -42,7 +42,7 @@ use crate::server::{ClientAddr, Client, RECVBUF_LEN};
 /// the handler threads.
 pub struct Updater {
     pub addr: ClientAddr,
-    client:   Box<Client>,
+    client:   Box<dyn Client>,
     subs:     [Vec<String>; 2],
     tsindex:  usize,
     searcher: AhoCorasick,
@@ -50,7 +50,7 @@ pub struct Updater {
 
 /// These objects are sent to the updater thread from the DB and handlers.
 pub enum UpdaterMsg {
-    NewUpdater(Updater),
+    NewUpdater(Box<Updater>),
     Update(UpdaterEntry, Option<ClientAddr>),
     Subscription(ClientAddr, String, bool),
     CancelSubscription(ClientAddr, String, bool),
@@ -61,7 +61,7 @@ pub enum UpdaterMsg {
 /// database calls.
 pub struct Handler {
     name:   String,
-    client: Box<Client>,
+    client: Box<dyn Client>,
     addr:   ClientAddr,
     db:     ThreadsafeDB,
     upd_q:  Sender<UpdaterMsg>,
@@ -69,7 +69,7 @@ pub struct Handler {
 }
 
 impl Updater {
-    pub fn new(client: Box<Client>, addr: ClientAddr) -> Updater {
+    pub fn new(client: Box<dyn Client>, addr: ClientAddr) -> Updater {
         Updater { addr, client, subs: [vec![], vec![]], tsindex: 0,
                   searcher: AhoCorasick::new(Vec::<String>::new()) }
     }
@@ -102,7 +102,7 @@ impl Updater {
 }
 
 impl Handler {
-    pub fn new(client: Box<Client>, upd_q: Sender<UpdaterMsg>, db: ThreadsafeDB) -> Handler {
+    pub fn new(client: Box<dyn Client>, upd_q: Sender<UpdaterMsg>, db: ThreadsafeDB) -> Handler {
         // spawn a thread that handles sending back replies to the socket
         let (w_msgs, r_msgs) = unbounded();
         let send_client = client.try_clone().expect("could not clone socket");
@@ -119,7 +119,7 @@ impl Handler {
     }
 
     /// Thread that sends back replies (but not updates) to the client.
-    fn sender(name: &str, client: Box<Client>, r_msgs: Receiver<String>) {
+    fn sender(name: &str, client: Box<dyn Client>, r_msgs: Receiver<String>) {
         for to_send in r_msgs {
             if let Err(err) = client.write(to_send.as_bytes()) {
                 warn!("[{}] write error in sender: {}", name, err);

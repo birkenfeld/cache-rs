@@ -22,14 +22,13 @@
 //
 //! This module contains the server instance itself.
 
-use std::cmp::min;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpStream, TcpListener, UdpSocket, Shutdown};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-use log::*;
+use log::{info, warn};
 use parking_lot::Mutex;
 use crossbeam_channel::{unbounded, Sender, Receiver};
 use mlzutil::fs::abspath;
@@ -71,7 +70,7 @@ impl StorePath {
 pub trait Client : Send {
     fn read(&mut self, _: &mut [u8]) -> io::Result<usize>;
     fn write(&self, _: &[u8]) -> io::Result<()>;
-    fn try_clone(&self) -> io::Result<Box<Client>>;
+    fn try_clone(&self) -> io::Result<Box<dyn Client>>;
     fn close(&mut self);
     fn get_addr(&self) -> ClientAddr;
 }
@@ -86,8 +85,8 @@ impl Client for TcpClient {
     fn write(&self, buf: &[u8]) -> io::Result<()> {
         (&self.0).write_all(buf)
     }
-    fn try_clone(&self) -> io::Result<Box<Client>> {
-        self.0.try_clone().map(|s| (Box::new(TcpClient(s, self.1)) as Box<Client>))
+    fn try_clone(&self) -> io::Result<Box<dyn Client>> {
+        self.0.try_clone().map(|s| Box::new(TcpClient(s, self.1)) as _)
     }
     fn close(&mut self) {
         let _ = self.0.shutdown(Shutdown::Both);
@@ -111,13 +110,13 @@ impl Client for UdpClient {
         let n = buf.len();
         let mut from = 0;
         while from < buf.len() {
-            self.0.send_to(&buf[from..min(n, from+1496)], self.1)?;
+            self.0.send_to(&buf[from..n.min(from+1496)], self.1)?;
             from += 1496;
         }
         Ok(())
     }
-    fn try_clone(&self) -> io::Result<Box<Client>> {
-        self.0.try_clone().map(|s| (Box::new(UdpClient(s, self.1, None)) as Box<Client>))
+    fn try_clone(&self) -> io::Result<Box<dyn Client>> {
+        self.0.try_clone().map(|s| Box::new(UdpClient(s, self.1, None)) as _)
     }
     fn close(&mut self) { }
     fn get_addr(&self) -> ClientAddr { self.1 }
@@ -148,7 +147,7 @@ impl Server {
         let (w_updates, r_updates) = unbounded();
 
         // create the database object itself and wrap it into the mutex
-        let store: Box<Store> = match storepath {
+        let store: Box<dyn Store> = match storepath {
             StorePath::Fs(path) => Box::new(FlatStore::new(path)),
             StorePath::Uri(ref uri) if uri.starts_with("postgresql://") => {
                 Self::make_postgres_store(uri)?
@@ -180,18 +179,18 @@ impl Server {
     }
 
     #[cfg(feature = "postgres")]
-    fn make_postgres_store(uri: &str) -> Result<Box<Store>, ()> {
+    fn make_postgres_store(uri: &str) -> Result<Box<dyn Store>, ()> {
         match PgSqlStore::new(uri) {
             Ok(store) => Ok(Box::new(store)),
             Err(err) => {
-                error!("could not connect to Postgres: {}", err);
+                log::error!("could not connect to Postgres: {}", err);
                 Err(())
             }
         }
     }
 
     #[cfg(not(feature = "postgres"))]
-    fn make_postgres_store(_: &str) -> Result<Box<Store>, ()> {
+    fn make_postgres_store(_: &str) -> Result<Box<dyn Store>, ()> {
         panic!("not compiled with postgres support")
     }
 
@@ -226,7 +225,7 @@ impl Server {
                     }
                 },
                 UpdaterMsg::NewUpdater(updater) => {
-                    updaters.push(updater);
+                    updaters.push(*updater);
                 },
                 UpdaterMsg::Subscription(addr, key, with_ts) => {
                     if let Some(upd) = updaters.iter_mut().find(|u| u.addr == addr) {
@@ -273,7 +272,7 @@ impl Server {
             // create the updater object and insert it into the mapping
             let upd_client = client.try_clone().expect("could not clone socket");
             let updater = Updater::new(upd_client, addr);
-            let _ = self.upd_q.send(UpdaterMsg::NewUpdater(updater));
+            let _ = self.upd_q.send(UpdaterMsg::NewUpdater(Box::new(updater)));
 
             // create the handler and start its main thread
             let notifier = self.upd_q.clone();
