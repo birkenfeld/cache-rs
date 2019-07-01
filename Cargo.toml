@@ -1,7 +1,8 @@
 [package]
 name = "cache-rs"
+description = "A Rust implementation of the NICOS cache"
 version = "1.0.5"
-authors = ["Georg Brandl <georg@python.org>"]
+authors = ["Georg Brandl <g.brandl@fz-juelich.de>"]
 edition = "2018"
 
 [profile.release]
