@@ -36,10 +36,9 @@ use structopt::{StructOpt, clap};
 use signal_hook::iterator::Signals;
 
 #[derive(StructOpt)]
-#[structopt(author = "")]
 #[structopt(about = "A Rust implementation of the NICOS cache.")]
-#[structopt(raw(setting = "clap::AppSettings::UnifiedHelpMessage"))]
-#[structopt(raw(setting = "clap::AppSettings::DeriveDisplayOrder"))]
+#[structopt(setting = clap::AppSettings::UnifiedHelpMessage)]
+#[structopt(setting = clap::AppSettings::DeriveDisplayOrder)]
 struct Options {
     #[structopt(long="bind", default_value="127.0.0.1:14869", help="Bind address (host:port)")]
     bind_addr: String,
@@ -59,7 +58,7 @@ struct Options {
     user: Option<String>,
     #[structopt(long="group", help="Group name for daemon")]
     group: Option<String>,
-    #[structopt(raw(hidden="true"))]
+    #[structopt(hidden=true)]
     _dummy: Option<String>,
 }
 
