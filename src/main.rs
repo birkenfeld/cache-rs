@@ -78,8 +78,13 @@ fn main() {
             eprintln!("could not daemonize process: {}", err);
         }
     }
-    if let Err(err) = mlzlog::init(Some(log_path), "cache_rs", false,
-                                   args.verbose, !args.daemonize) {
+    if let Err(err) = mlzlog::init(
+        Some(log_path), "cache_rs", mlzlog::Settings {
+            show_appname: false,
+            debug: args.verbose,
+            use_stdout: !args.daemonize,
+            .. Default::default()
+        }) {
         eprintln!("could not initialize logging: {}", err);
     }
     let store_path = server::StorePath::parse(&args.store_path).unwrap_or_else(|err| {

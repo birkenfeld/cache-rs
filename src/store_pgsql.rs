@@ -24,7 +24,7 @@
 
 use std::io;
 use log::info;
-use postgres::{self, Connection, TlsMode};
+use postgres::{self, Client, NoTls, error::Error};
 use hashbrown::HashMap;
 
 use crate::database::{self, EntryMap};
@@ -33,13 +33,17 @@ use crate::entry::{Entry, split_key, construct_key};
 /// Represents the Postgres backend store.
 pub struct Store {
     /// Postgres connection.
-    connection: Connection,
+    connection: Client,
 }
 
 impl Store {
     pub fn new(url: &str) -> Result<Store, postgres::error::Error> {
-        Ok(Store { connection: Connection::connect(url, TlsMode::None)? })
+        Ok(Store { connection: Client::connect(url, NoTls)? })
     }
+}
+
+fn pg_err(err: Error) -> io::Error {
+    io::Error::new(io::ErrorKind::Other, err.to_string())
 }
 
 impl database::Store for Store {
@@ -49,7 +53,7 @@ impl database::Store for Store {
             "DROP TABLE IF EXISTS values; \
              CREATE UNLOGGED TABLE values \
                ( key TEXT, value TEXT, time DOUBLE PRECISION, expires BOOL ); \
-             CREATE INDEX ON values ( key );")?;
+             CREATE INDEX ON values ( key );").map_err(pg_err)?;
         Ok(())
     }
 
@@ -60,7 +64,7 @@ impl database::Store for Store {
                      SELECT values.key, values.value, values.time, values.expires \
                        FROM values, max_ts \
                        WHERE max_ts.key = values.key AND max_ts.time = values.time;";
-        let result = self.connection.query(query, &[])?;
+        let result = self.connection.query(query, &[]).map_err(pg_err)?;
         let num_rows = result.len();
         for row in &result {
             let key: String = row.get(0);
@@ -87,7 +91,8 @@ impl database::Store for Store {
                        VALUES ( $1, $2, $3, $4 );";
         let key = construct_key(catname, subkey);
         let expires = entry.ttl > 0. || entry.expired;
-        self.connection.execute(query, &[&key, &entry.value, &entry.time, &expires])?;
+        self.connection.execute(query, &[&key, &entry.value, &entry.time, &expires])
+            .map_err(pg_err)?;
         Ok(())
     }
 
