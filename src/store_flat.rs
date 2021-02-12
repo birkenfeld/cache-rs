@@ -258,8 +258,10 @@ impl Store {
     }
 
     /// Read history for a given subkey from a file.
-    fn read_history(&self, path: &str, catname: &str, subkey: &str, from: f64, to: f64,
-                    send: &mut dyn FnMut(f64, &str)) -> io::Result<()> {
+    fn read_history<F>(&self, path: &str, catname: &str, subkey: &str,
+                       from: f64, to: f64, send: &mut F) -> io::Result<()>
+    where F: FnMut(f64, &str) + ?Sized
+    {
         let catname = catname.replace('/', "-");
         let path = self.storepath.join(path).join(catname);
         if path.is_file() {
