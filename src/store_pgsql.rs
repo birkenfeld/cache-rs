@@ -25,7 +25,7 @@
 use std::io;
 use log::info;
 use postgres::{self, Client, NoTls, error::Error};
-use hashbrown::HashMap;
+use dashmap::DashMap;
 
 use crate::database::{self, EntryMap};
 use crate::entry::{Entry, split_key, construct_key};
@@ -58,7 +58,7 @@ impl database::Store for Store {
     }
 
     /// Load the latest DB entries.
-    fn load_latest(&mut self, entry_map: &mut EntryMap) -> io::Result<()> {
+    fn load_latest(&mut self, entry_map: &EntryMap) -> io::Result<()> {
         let query = "WITH max_ts AS \
                        ( SELECT key, MAX(time) \"time\" FROM values GROUP BY key ) \
                      SELECT values.key, values.value, values.time, values.expires \
@@ -69,7 +69,7 @@ impl database::Store for Store {
         for row in &result {
             let key: String = row.get(0);
             let (cat, subkey) = split_key(&key);
-            let submap = entry_map.entry(cat.into()).or_insert_with(HashMap::default);
+            let submap = entry_map.entry(cat.into()).or_insert_with(DashMap::default);
             let mut entry = Entry::new_owned(row.get(2), 0., row.get(1));
             if row.get(3) {
                 entry = entry.expired();
@@ -81,7 +81,7 @@ impl database::Store for Store {
     }
 
     /// Nothing to do here.
-    fn tell_hook(&mut self, _: &Entry, _: &mut EntryMap) -> io::Result<()> {
+    fn tell_hook(&mut self, _: &Entry, _: &EntryMap) -> io::Result<()> {
         Ok(())
     }
 

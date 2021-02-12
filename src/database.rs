@@ -26,7 +26,9 @@ use std::io;
 use std::sync::Arc;
 use log::{info, debug};
 use parking_lot::Mutex;
-use hashbrown::{HashSet, HashMap, hash_map::Entry as HEntry};
+use dashmap::DashMap;
+use dashmap::mapref::{entry::Entry as HEntry};
+use hashbrown::HashSet;
 use crossbeam_channel::Sender;
 use mlzutil::time::localtime;
 
@@ -35,7 +37,7 @@ use crate::handler::UpdaterMsg;
 use crate::server::ClientAddr;
 use crate::message::CacheMsg::{TellTS, LockRes};
 
-pub type EntryMap = HashMap<String, HashMap<String, Entry>>;
+pub type EntryMap = DashMap<String, DashMap<String, Entry>>;
 
 /// Represents the database of key-value entries.
 ///
@@ -45,28 +47,26 @@ pub type EntryMap = HashMap<String, HashMap<String, Entry>>;
 /// a trait and pluggable.
 pub struct DB {
     /// Store backend (dynamically dispatched).
-    store:        Box<dyn Store>,
+    store:        Arc<Mutex<Box<dyn Store>>>,
     /// Map of keys, first by categories (key prefixes) then by subkey.
     entry_map:    EntryMap,
     /// Map of lock entries.
-    locks:        HashMap<String, Entry>,
+    locks:        DashMap<String, Entry>,
     /// Map of rewrite entries (from X to (Y1, Y2, ...)).
-    rewrites:     HashMap<String, HashSet<String>>,
+    rewrites:     DashMap<String, HashSet<String>>,
     /// Inverse map of rewrite entries (from Y1 to X).
-    inv_rewrites: HashMap<String, String>,
+    inv_rewrites: DashMap<String, String>,
     /// Queue to send updates back to the updater thread.
     upd_q:        Sender<UpdaterMsg>,
 }
-
-pub type ThreadsafeDB = Arc<Mutex<DB>>;
 
 pub trait Store : Send {
     /// Clear all stored data.  Used for --clear invocation.
     fn clear(&mut self) -> io::Result<()>;
     /// Load latest key-value set from stored data.
-    fn load_latest(&mut self, entry_map: &mut EntryMap) -> io::Result<()>;
+    fn load_latest(&mut self, entry_map: &EntryMap) -> io::Result<()>;
     /// Called when a new key is set.  Used to roll over stores or similar.
-    fn tell_hook(&mut self, entry: &Entry, entry_map: &mut EntryMap) -> io::Result<()>;
+    fn tell_hook(&mut self, entry: &Entry, entry_map: &EntryMap) -> io::Result<()>;
     /// Save a new entry to the store.
     fn save(&mut self, catname: &str, subkey: &str, entry: &Entry) -> io::Result<()>;
     /// Query history of entries for a specified key to given client.
@@ -77,30 +77,32 @@ impl DB {
     /// Create a new empty database.
     pub fn new(store: Box<dyn Store>, upd_q: Sender<UpdaterMsg>) -> DB {
         DB {
-            store,
+            store: Arc::new(Mutex::new(store)),
             upd_q,
-            entry_map: HashMap::default(),
-            locks: HashMap::default(),
-            rewrites: HashMap::default(),
-            inv_rewrites: HashMap::default(),
+            entry_map: DashMap::default(),
+            locks: DashMap::default(),
+            rewrites: DashMap::default(),
+            inv_rewrites: DashMap::default(),
         }
     }
 
     /// Clear all DB store files.
     pub fn clear_db(&mut self) -> io::Result<()> {
-        self.store.clear()
+        self.store.lock().clear()
     }
 
     /// Load the DB entries from the store path.
     pub fn load_db(&mut self) -> io::Result<()> {
-        self.store.load_latest(&mut self.entry_map)
+        self.store.lock().load_latest(&mut self.entry_map)
     }
 
     /// Clean up expired keys.
-    pub fn clean(&mut self) {
-        for (catname, submap) in &mut self.entry_map {
+    pub fn clean(&self) {
+        for catname_submap in &self.entry_map {
+            let (catname, submap) = catname_submap.pair();
             let now = localtime();
-            for (subkey, entry) in submap.iter_mut() {
+            for mut subkey_entry in submap.iter_mut() {
+                let (subkey, entry) = subkey_entry.pair_mut();
                 if entry.expired {
                     continue;
                 }
@@ -110,18 +112,18 @@ impl DB {
                     let fullkey = construct_key(catname, subkey);
                     let _ = self.upd_q.send(
                         UpdaterMsg::Update(UpdaterEntry::new(fullkey, entry), None));
-                    let _ = self.store.save(catname, subkey, entry);
+                    let _ = self.store.lock().save(catname, subkey, entry);
                 }
             }
         }
     }
 
     /// Set or delete a prefix rewrite entry.
-    pub fn rewrite(&mut self, new: &str, old: &str) {
+    pub fn rewrite(&self, new: &str, old: &str) {
         // rewrite goes old -> new
         let old = old.to_lowercase();
         // remove any existing rewrite to the "new" prefix
-        if let Some(previous) = self.inv_rewrites.remove(new) {
+        if let Some((_, previous)) = self.inv_rewrites.remove(new) {
             if let HEntry::Occupied(mut entry) = self.rewrites.entry(previous) {
                 entry.get_mut().remove(new);
                 if entry.get().is_empty() {
@@ -139,21 +141,22 @@ impl DB {
     }
 
     /// Insert or update a key-value entry.
-    pub fn tell(&mut self, key: &str, val: &str, time: f64, ttl: f64, no_store: bool,
+    pub fn tell(&self, key: &str, val: &str, time: f64, ttl: f64, no_store: bool,
                 from: ClientAddr) -> io::Result<()> {
         let (catname, subkey) = split_key(key);
-        let mut newcats = vec![catname];
+        let mut newcats = vec![catname.to_string()];
         // process rewrites for this key's prefix (= category)
         if let Some(rewrite_cats) = self.rewrites.get(catname) {
-            newcats.extend(rewrite_cats.iter().map(String::as_str));
+            newcats.extend(rewrite_cats.iter().cloned());  // XXX: cannot borrow
         }
         let entry = Entry::new(time, ttl, val);
-        self.store.tell_hook(&entry, &mut self.entry_map)?;
+        let mut store = self.store.lock();
+        store.tell_hook(&entry, &self.entry_map)?;
         for catname in newcats {
             let mut need_update = true;
             // write to in-memory map
-            if let Some(catmap) = self.entry_map.get_mut(catname) {
-                if let Some(existing_entry) = catmap.get_mut(subkey) {
+            if let Some(catmap) = self.entry_map.get_mut(&catname) {
+                if let Some(mut existing_entry) = catmap.get_mut(subkey) {
                     if existing_entry.value == val && !existing_entry.expired {
                         // if we already have the same value, only adapt time
                         // and ttl info
@@ -172,17 +175,17 @@ impl DB {
                     catmap.insert(subkey.into(), entry.clone());
                 }
             } else {
-                let mut catmap = HashMap::default();
+                let catmap = DashMap::default();
                 catmap.insert(subkey.into(), entry.clone());
-                self.entry_map.insert(catname.into(), catmap);
+                self.entry_map.insert(catname.clone(), catmap);
             }
             // write to on-disk file
             if need_update && !no_store {
-                self.store.save(catname, subkey, &entry)?;
+                store.save(&catname, subkey, &entry)?;
             }
             // notify about update (nostore keys are always propagated)
             if need_update || no_store {
-                let fullkey = construct_key(catname, subkey);
+                let fullkey = construct_key(&catname, subkey);
                 let _ = self.upd_q.send(
                     UpdaterMsg::Update(UpdaterEntry::new(fullkey, &entry), Some(from)));
             }
@@ -193,18 +196,23 @@ impl DB {
     /// Ask for a single value.
     pub fn ask(&self, key: &str, with_ts: bool, send_q: &Sender<String>) {
         let (catname, subkey) = split_key(key);
-        let msg = match self.entry_map.get(catname).and_then(|m| m.get(subkey)) {
-            None => Entry::no_msg(key, with_ts),
-            Some(entry) => entry.to_msg(key, with_ts),
+        let msg = match self.entry_map.get(catname) {
+            Some(m) => match m.get(subkey) {
+                Some(entry) => entry.to_msg(key, with_ts).to_string(),
+                None => Entry::no_msg(key, with_ts).to_string(),
+            }
+            None => Entry::no_msg(key, with_ts).to_string(),
         };
-        let _ = send_q.send(msg.to_string());
+        let _ = send_q.send(msg);
     }
 
     /// Ask for many values matching a key wildcard.
     pub fn ask_wc(&self, wc: &str, with_ts: bool, send_q: &Sender<String>) {
         let mut res = Vec::with_capacity(BATCHSIZE);
-        for (catname, catmap) in &self.entry_map {
-            for (subkey, entry) in catmap.iter() {
+        for catname_catmap in &self.entry_map {
+            let (catname, catmap) = catname_catmap.pair();
+            for subkey_entry in catmap.iter() {
+                let (subkey, entry) = subkey_entry.pair();
                 let fullkey = construct_key(catname, subkey);
                 if fullkey.find(wc).is_some() {
                     res.push(entry.to_msg(&fullkey, with_ts).to_string());
@@ -219,12 +227,12 @@ impl DB {
     }
 
     /// Ask for the history of a single key.
-    pub fn ask_hist(&mut self, key: &str, from: f64, delta: f64, send_q: &Sender<String>) {
+    pub fn ask_hist(&self, key: &str, from: f64, delta: f64, send_q: &Sender<String>) {
         if delta < 0. {
             return;
         }
         let mut res = Vec::with_capacity(BATCHSIZE);
-        self.store.query_history(key, from, from + delta, &mut |time, val| {
+        self.store.lock().query_history(key, from, from + delta, &mut |time, val| {
             res.push(TellTS { key, val, time, ttl: 0., no_store: false }.to_string());
             if res.len() >= BATCHSIZE {
                 let _ = send_q.send(res.join(""));
@@ -235,7 +243,7 @@ impl DB {
     }
 
     /// Lock or unlock a key for multi-process synchronization.
-    pub fn lock(&mut self, lock: bool, key: &str, client: &str, time: f64, ttl: f64,
+    pub fn lock(&self, lock: bool, key: &str, client: &str, time: f64, ttl: f64,
                 send_q: &Sender<String>) {
         // find existing lock entry (these are in a different namespace from normal keys)
         let entry = self.locks.entry(key.into());

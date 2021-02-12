@@ -27,6 +27,7 @@ use std::fs::{File, OpenOptions, read_dir, remove_file, hard_link, remove_dir_al
 use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
+use dashmap::DashMap;
 use log::{info, warn};
 use time::{self, Tm, Duration};
 use hashbrown::HashMap;
@@ -100,7 +101,7 @@ impl database::Store for Store {
     }
 
     /// Load the latest DB entries from the store.
-    fn load_latest(&mut self, entry_map: &mut EntryMap) -> io::Result<()> {
+    fn load_latest(&mut self, entry_map: &EntryMap) -> io::Result<()> {
         ensure_dir(&self.storepath)?;
         let mut nentries = 0;
         let mut nfiles = 0;
@@ -150,7 +151,7 @@ impl database::Store for Store {
     }
 
     /// Roll over store files when needed.
-    fn tell_hook(&mut self, entry: &Entry, entry_map: &mut EntryMap) -> io::Result<()> {
+    fn tell_hook(&mut self, entry: &Entry, entry_map: &EntryMap) -> io::Result<()> {
         if entry.time >= self.midnights.1 {
             self.rollover(entry_map)?;
         }
@@ -185,9 +186,9 @@ impl database::Store for Store {
 
 impl Store {
     /// Load keys from a single file for category "catname".
-    fn load_one_file(&self, filename: &Path) -> io::Result<HashMap<String, Entry>> {
+    fn load_one_file(&self, filename: &Path) -> io::Result<DashMap<String, Entry>> {
         let fp = File::open(filename)?;
-        let mut map = HashMap::default();
+        let map = DashMap::default();
         Self::read_storefile(fp, |parts| {
             let subkey = parts[0];
             if parts[2] == "+" {
@@ -200,7 +201,7 @@ impl Store {
                 if let Ok(v) = parts[1].parse() {
                     map.insert(subkey.into(), Entry::new(v, 0., parts[3]).expired());
                 }
-            } else if let Some(entry) = map.get_mut(subkey) {
+            } else if let Some(mut entry) = map.get_mut(subkey) {
                 // value is empty: be sure to mark any current value as expired
                 entry.expired = true;
             }
@@ -218,7 +219,7 @@ impl Store {
     }
 
     /// Roll over all store files after midnight has passed.
-    fn rollover(&mut self, entry_map: &mut EntryMap) -> io::Result<()> {
+    fn rollover(&mut self, entry_map: &EntryMap) -> io::Result<()> {
         info!("midnight passed, rolling over data files...");
         let thisday = Tm { tm_hour: 0, tm_min: 0, tm_sec: 0, tm_nsec: 0, ..time::now() };
         self.midnights = (to_timefloat(thisday),
@@ -229,9 +230,10 @@ impl Store {
             drop(fp);
             let submap = entry_map.get(&catname).unwrap();
             let mut new_fp = self.create_fd(&catname)?;
-            for (subkey, entry) in submap {
+            for subkey_entry in &*submap {
+                let (subkey, entry) = subkey_entry.pair();
                 if !entry.expired {
-                    entry.to_file(subkey, &mut new_fp)?;
+                    entry.to_file(&subkey, &mut new_fp)?;
                 }
             }
         }

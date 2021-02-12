@@ -29,12 +29,11 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use log::{info, warn};
-use parking_lot::Mutex;
 use crossbeam_channel::{unbounded, Sender, Receiver};
 use mlzutil::fs::abspath;
 
 use crate::handler::{Updater, Handler, UpdaterMsg};
-use crate::database::{ThreadsafeDB, DB, Store};
+use crate::database::{DB, Store};
 use crate::store_flat::Store as FlatStore;
 #[cfg(feature = "postgres")]
 use crate::store_pgsql::Store as PgSqlStore;
@@ -137,7 +136,7 @@ impl Client for UdpClient {
 /// - handlers: each listener thread can spawn handler threads when a connection
 ///   comes in; each thread runs a Handler's main function
 pub struct Server {
-    db:    ThreadsafeDB,
+    db:    Arc<DB>,
     upd_q: Sender<UpdaterMsg>,
 }
 
@@ -166,7 +165,7 @@ impl Server {
                 warn!("could not read existing database: {}", e);
             }
         }
-        let db = Arc::new(Mutex::new(db));
+        let db = Arc::new(db);
 
         // start a thread that cleans the DB periodically of expired entries
         let db_clone = db.clone();
@@ -196,12 +195,11 @@ impl Server {
 
     /// Periodically call the database's "clean" function, which searches for
     /// expired keys and updates clients about the expiration.
-    fn cleaner(db: ThreadsafeDB) {
+    fn cleaner(db: Arc<DB>) {
         info!("cleaner started");
         loop {
             thread::sleep(Duration::from_millis(250));
             {
-                let mut db = db.lock();
                 db.clean();
             }
         }
@@ -245,7 +243,7 @@ impl Server {
     }
 
     /// Listen for data on the UDP socket and spawn handlers for it.
-    fn udp_listener(sock: UdpSocket, db: ThreadsafeDB) {
+    fn udp_listener(sock: UdpSocket, db: Arc<DB>) {
         info!("udp listener started");
         let mut recvbuf = [0u8; RECVBUF_LEN];
         loop {

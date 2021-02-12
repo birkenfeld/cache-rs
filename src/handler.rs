@@ -22,15 +22,14 @@
 //
 //! This module contains the handler for a single network connection.
 
-use std::thread;
+use std::{sync::Arc, thread};
 use log::{info, warn, debug};
 use memchr::memchr;
 use aho_corasick::AhoCorasick;
 use crossbeam_channel::{unbounded, Sender, Receiver};
 use mlzutil::time::localtime;
 
-use crate::entry::UpdaterEntry;
-use crate::database::ThreadsafeDB;
+use crate::{database::DB, entry::UpdaterEntry};
 use crate::message::CacheMsg;
 use crate::message::CacheMsg::*;
 use crate::server::{ClientAddr, Client, RECVBUF_LEN};
@@ -63,7 +62,7 @@ pub struct Handler {
     name:   String,
     client: Box<dyn Client>,
     addr:   ClientAddr,
-    db:     ThreadsafeDB,
+    db:     Arc<DB>,
     upd_q:  Sender<UpdaterMsg>,
     send_q: Sender<String>,
 }
@@ -102,7 +101,7 @@ impl Updater {
 }
 
 impl Handler {
-    pub fn new(client: Box<dyn Client>, upd_q: Sender<UpdaterMsg>, db: ThreadsafeDB) -> Handler {
+    pub fn new(client: Box<dyn Client>, upd_q: Sender<UpdaterMsg>, db: Arc<DB>) -> Handler {
         // spawn a thread that handles sending back replies to the socket
         let (w_msgs, r_msgs) = unbounded();
         let send_client = client.try_clone().expect("could not clone socket");
@@ -133,7 +132,7 @@ impl Handler {
     fn handle_msg(&self, msg: CacheMsg) {
         // get a handle to the DB (since all but one of the message types require DB
         // access, we do it here once)
-        let mut db = self.db.lock();
+        let db = &self.db;
         match msg {
             // key updates
             Tell { key, val, no_store } =>
