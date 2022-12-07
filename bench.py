@@ -124,7 +124,7 @@ def ask_only():
 
 
 def ask_history():
-    mains, subs = connect(opts.s, 0)
+    mains, _subs = connect(opts.s, 0)
 
     hist_msg = [b'%.1f@ben/%s/k000000=%d\n' % (i+0.1, rnd_key, i)
                 for i in range(opts.n)]
@@ -135,7 +135,7 @@ def ask_history():
     assert msg_set == set([expect.strip()])
     t1 = time.time()
     for main in mains:
-        main.sendall(b'0-%s@ben/%s/k000000?\n' % (t1 + 10, rnd_key))
+        main.sendall(b'0-%f@ben/%s/k000000?\n' % (t1 + 10, rnd_key))
     for main in mains:
         msg_set = recvall(main, len(b''.join(hist_msg)))
         assert msg_set == set(m.strip() for m in hist_msg)
