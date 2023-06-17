@@ -71,7 +71,7 @@ pub struct Handler {
 impl Updater {
     pub fn new(client: Box<dyn Client>, addr: ClientAddr) -> Updater {
         Updater { addr, client, subs: [vec![], vec![]], tsindex: 0,
-                  searcher: AhoCorasick::new(Vec::<String>::new()) }
+                  searcher: AhoCorasick::new(Vec::<String>::new()).unwrap() }
     }
 
     /// Add a new subscription for this client.
@@ -89,14 +89,14 @@ impl Updater {
     /// Rebuild the Aho-Corasick automaton used to match keys.
     fn subs_updated(&mut self) {
         self.tsindex = self.subs[0].len();
-        self.searcher = AhoCorasick::new(self.subs[0].iter().chain(&self.subs[1]).cloned());
+        self.searcher = AhoCorasick::new(self.subs[0].iter().chain(&self.subs[1]).cloned()).unwrap();
     }
 
     /// Update this client, if the key is matched by one of the subscriptions.
     pub fn update(&self, entry: &mut UpdaterEntry) {
         if let Some(m) = self.searcher.find(entry.key()) {
             debug!("[{}] update: {:?} | {:?}", self.addr, entry, self.subs);
-            let _ = self.client.write(entry.get_msg(m.pattern() >= self.tsindex).as_bytes());
+            let _ = self.client.write(entry.get_msg(m.pattern().as_usize() >= self.tsindex).as_bytes());
         }
     }
 }

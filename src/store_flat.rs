@@ -28,7 +28,7 @@ use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use log::{info, warn};
-use time::{self, Tm, Duration};
+use time::{OffsetDateTime, Time, Duration};
 use hashbrown::HashMap;
 use mlzutil::fs::ensure_dir;
 use mlzutil::time::{to_timespec, to_timefloat};
@@ -37,18 +37,22 @@ use crate::database::{self, EntryMap};
 use crate::entry::{Entry, split_key};
 
 /// Get the store subdir for a certain day.
-pub fn day_path(day: time::Tm) -> String {
-    format!("{:04}/{:02}-{:02}", 1900 + day.tm_year, 1 + day.tm_mon, day.tm_mday)
+pub fn day_path(day: OffsetDateTime) -> String {
+    format!("{:04}/{:02}-{:02}", day.year(), day.month() as u8, day.day())
+}
+
+fn thisday() -> OffsetDateTime {
+    OffsetDateTime::now_local().unwrap().replace_time(Time::MIDNIGHT)
 }
 
 /// Get all days between two timestamps.
 pub fn all_days(from: f64, to: f64) -> Vec<String> {
     let mut res = Vec::new();
     let to = to_timespec(to);
-    let mut tm = time::at(to_timespec(from));
-    while tm.to_timespec() < to {
+    let mut tm = to_timespec(from);
+    while tm < to {
         res.push(day_path(tm));
-        tm = tm + time::Duration::days(1);
+        tm = tm + Duration::days(1);
     }
     res
 }
@@ -77,7 +81,7 @@ pub struct Store {
 
 impl Store {
     pub fn new(storepath: PathBuf) -> Store {
-        let thisday = Tm { tm_hour: 0, tm_min: 0, tm_sec: 0, tm_nsec: 0, ..time::now() };
+        let thisday = thisday();
         Store {
             storepath,
             files: HashMap::default(),
@@ -220,7 +224,7 @@ impl Store {
     /// Roll over all store files after midnight has passed.
     fn rollover(&mut self, entry_map: &mut EntryMap) -> io::Result<()> {
         info!("midnight passed, rolling over data files...");
-        let thisday = Tm { tm_hour: 0, tm_min: 0, tm_sec: 0, tm_nsec: 0, ..time::now() };
+        let thisday = thisday();
         self.midnights = (to_timefloat(thisday),
                           to_timefloat(thisday + Duration::days(1)));
         self.ymd_path = day_path(thisday);
