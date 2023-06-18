@@ -130,7 +130,7 @@ impl DB {
             }
         }
         // then, if old is not empty, insert a new rewrite
-        if old != "" {
+        if !old.is_empty() {
             self.inv_rewrites.insert(new.into(), old.clone());
             self.rewrites.entry(old).or_insert_with(HashSet::new).insert(new.into());
         }
@@ -161,7 +161,7 @@ impl DB {
                         existing_entry.time = time;
                         existing_entry.ttl = ttl;
                     } else {
-                        if val == "" && existing_entry.expired {
+                        if val.is_empty() && existing_entry.expired {
                             // if the value is deleted, but the entry was already
                             // expired, no need to record the deletion
                             need_update = false;
@@ -206,7 +206,7 @@ impl DB {
         for (catname, catmap) in &self.entry_map {
             for (subkey, entry) in catmap.iter() {
                 let fullkey = construct_key(catname, subkey);
-                if fullkey.find(wc).is_some() {
+                if fullkey.contains(wc) {
                     res.push(entry.to_msg(&fullkey, with_ts).to_string());
                     if res.len() >= BATCHSIZE {
                         let _ = send_q.send(res.join(""));

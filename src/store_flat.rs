@@ -52,7 +52,7 @@ pub fn all_days(from: f64, to: f64) -> Vec<String> {
     let mut tm = to_timespec(from);
     while tm < to {
         res.push(day_path(tm));
-        tm = tm + Duration::days(1);
+        tm += Duration::days(1);
     }
     res
 }
@@ -123,24 +123,22 @@ impl database::Store for Store {
         }
 
         if let Ok(dentry_iter) = read_dir(p) {
-            for dentry in dentry_iter {
-                if let Ok(dentry) = dentry {
-                    if !dentry.metadata().map(|m| m.is_file()).unwrap_or(false) {
-                        continue;
-                    }
-                    let path = dentry.path();
-                    match self.load_one_file(&path) {
-                        Ok(map) => {
-                            let catname = path.file_name().unwrap().to_string_lossy()
-                                                                   .replace('-', "/");
-                            nentries += map.len();
-                            nfiles += 1;
-                            entry_map.insert(catname, map);
-                        },
-                        Err(err) => {
-                            warn!("could not read data from store file {:?}: {}",
-                                  path.display(), err);
-                        }
+            for dentry in dentry_iter.flatten() {
+                if !dentry.metadata().map(|m| m.is_file()).unwrap_or(false) {
+                    continue;
+                }
+                let path = dentry.path();
+                match self.load_one_file(&path) {
+                    Ok(map) => {
+                        let catname = path.file_name().unwrap().to_string_lossy()
+                                                               .replace('-', "/");
+                        nentries += map.len();
+                        nfiles += 1;
+                        entry_map.insert(catname, map);
+                    },
+                    Err(err) => {
+                        warn!("could not read data from store file {:?}: {}",
+                              path.display(), err);
                     }
                 }
             }
@@ -228,7 +226,7 @@ impl Store {
         self.midnights = (to_timefloat(thisday),
                           to_timefloat(thisday + Duration::days(1)));
         self.ymd_path = day_path(thisday);
-        let old_files = mem::replace(&mut self.files, HashMap::default());
+        let old_files = mem::take(&mut self.files);
         for (catname, fp) in old_files {
             drop(fp);
             let submap = entry_map.get(&catname).unwrap();

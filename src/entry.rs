@@ -51,12 +51,12 @@ pub struct Entry {
 
 impl Entry {
     pub fn new(time: f64, ttl: f64, value: &str) -> Entry {
-        Entry { time, ttl, expired: value == "", value: value.into() }
+        Entry { time, ttl, expired: value.is_empty(), value: value.into() }
     }
 
     #[allow(dead_code)]
     pub fn new_owned(time: f64, ttl: f64, value: String) -> Entry {
-        Entry { time, ttl, expired: value == "", value }
+        Entry { time, ttl, expired: value.is_empty(), value }
     }
 
     /// Mark the Entry as expired.
@@ -96,9 +96,9 @@ impl Entry {
 #[inline]
 pub fn split_key(key: &str) -> (&str, &str) {
     if let Some(i) = key.rfind('/') {
-        return (&key[..i], &key[i+1..]);
+        (&key[..i], &key[i+1..])
     } else {
-        return ("nocat", key);
+        ("nocat", key)
     }
 }
 
