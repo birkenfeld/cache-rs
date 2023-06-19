@@ -12,7 +12,7 @@ lto = true
 log = "0.4.8"
 time = { version = "0.3", features = ["local-offset"] }
 libc = "0.2.146"
-mlzlog = "0.8.0"
+mlzlog = "0.8.1"
 regex = "1.8.4"
 memchr = "2.3.0"
 mlzutil = "0.3.0"
