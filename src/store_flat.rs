@@ -28,7 +28,7 @@ use std::io::{self, BufRead, BufReader, Seek, SeekFrom, Write};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use log::{info, warn};
-use time::{OffsetDateTime, Time, Duration};
+use chrono::{DateTime, Datelike, Duration, Local, Utc, TimeZone};
 use hashbrown::HashMap;
 use mlzutil::fs::ensure_dir;
 use mlzutil::time::{to_timespec, to_timefloat};
@@ -37,12 +37,12 @@ use crate::database::{self, EntryMap};
 use crate::entry::{Entry, split_key};
 
 /// Get the store subdir for a certain day.
-pub fn day_path(day: OffsetDateTime) -> String {
+pub fn day_path<T: TimeZone>(day: DateTime<T>) -> String {
     format!("{:04}/{:02}-{:02}", day.year(), day.month() as u8, day.day())
 }
 
-fn thisday() -> OffsetDateTime {
-    OffsetDateTime::now_local().unwrap().replace_time(Time::MIDNIGHT)
+fn thisday() -> DateTime<Utc> {
+    Local::now().with_time(Default::default()).unwrap().to_utc()
 }
 
 /// Get all days between two timestamps.

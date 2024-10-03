@@ -32,38 +32,36 @@ mod message;
 mod server;
 
 use log::{info, error};
-use structopt::{StructOpt, clap};
+use clap::Parser;
 use signal_hook::iterator::Signals;
 
-#[derive(StructOpt)]
-#[structopt(about = "A Rust implementation of the NICOS cache.")]
-#[structopt(setting = clap::AppSettings::UnifiedHelpMessage)]
-#[structopt(setting = clap::AppSettings::DeriveDisplayOrder)]
+#[derive(Parser)]
+#[clap(author, version, about)]
 struct Options {
-    #[structopt(long="bind", default_value="127.0.0.1:14869", help="Bind address (host:port)")]
+    #[clap(long="bind", default_value="127.0.0.1:14869", help="Bind address (host:port)")]
     bind_addr: String,
-    #[structopt(long="store", default_value="data", help="Store path or URI")]
+    #[clap(long="store", default_value="data", help="Store path or URI")]
     store_path: String,
-    #[structopt(long="log", default_value="log", help="Logging path")]
+    #[clap(long="log", default_value="log", help="Logging path")]
     log_path: String,
-    #[structopt(long="pid", default_value="pid", help="PID path")]
+    #[clap(long="pid", default_value="pid", help="PID path")]
     pid_path: String,
-    #[structopt(short="v", help="Debug logging output?")]
+    #[clap(short='v', help="Debug logging output?")]
     verbose: bool,
-    #[structopt(long="clear", help="Clear the database on startup?")]
+    #[clap(long="clear", help="Clear the database on startup?")]
     clear: bool,
-    #[structopt(short="d", help="Daemonize?")]
+    #[clap(short='d', help="Daemonize?")]
     daemonize: bool,
-    #[structopt(long="user", help="User name for daemon")]
+    #[clap(long="user", help="User name for daemon")]
     user: Option<String>,
-    #[structopt(long="group", help="Group name for daemon")]
+    #[clap(long="group", help="Group name for daemon")]
     group: Option<String>,
-    #[structopt(hidden=true)]
+    #[clap(hide=true)]
     _dummy: Option<String>,
 }
 
 fn main() {
-    let args = Options::from_args();
+    let args = Options::parse();
     let log_path = mlzutil::fs::abspath(args.log_path);
     let pid_path = mlzutil::fs::abspath(args.pid_path);
     if args.daemonize {
